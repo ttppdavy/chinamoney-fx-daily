@@ -159,7 +159,7 @@ def implied_rate_observations(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     for record in snapshot["records"]:
         tenor = first_value(record, ("期限", "关键期限点"))
-        rate = parse_number(first_value(record, ("外币隐含利率", "美元隐含利率")))
+        rate = parse_number(first_value(record, ("隐含利率", "外币隐含利率", "美元隐含利率")))
         if tenor and rate is not None:
             output.append({
                 "instrument": "USD",
