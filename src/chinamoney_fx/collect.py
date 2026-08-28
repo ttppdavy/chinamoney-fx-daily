@@ -163,7 +163,7 @@ def implied_rate_observations(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         if tenor and rate is not None:
             output.append({
                 "instrument": "USD",
-                "surface": first_value(record, ("参数组合", "曲线", "人民币利率")),
+                "surface": "",
                 "tenor": tenor,
                 "metric": "implied_usd_rate",
                 "value": rate,
