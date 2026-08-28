@@ -1,0 +1,56 @@
+{
+  "retrieved_at_utc": "2026-08-28T09:25:18+00:00",
+  "source_date": "2026-08-28",
+  "snapshot_count": 8,
+  "observation_count": 92,
+  "sources": [
+    {
+      "name": "fixing",
+      "date": "2026-08-28",
+      "time": "09:15",
+      "rows": 25
+    },
+    {
+      "name": "spot",
+      "date": "2026-08-28",
+      "time": "11:30",
+      "rows": 26
+    },
+    {
+      "name": "swaps",
+      "date": "2026-08-28",
+      "time": "16:30",
+      "rows": 19
+    },
+    {
+      "name": "options",
+      "date": "2026-08-28",
+      "time": "10:00",
+      "rows": 13
+    },
+    {
+      "name": "options",
+      "date": "2026-08-28",
+      "time": "10:00",
+      "rows": 13
+    },
+    {
+      "name": "options",
+      "date": "2026-08-28",
+      "time": "10:00",
+      "rows": 13
+    },
+    {
+      "name": "options",
+      "date": "2026-08-28",
+      "time": "10:00",
+      "rows": 13
+    },
+    {
+      "name": "implied_rates",
+      "date": "2026-08-28",
+      "time": "",
+      "rows": 13
+    }
+  ]
+}
