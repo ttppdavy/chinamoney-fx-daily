@@ -1,5 +1,5 @@
 {
-  "retrieved_at_utc": "2026-08-28T09:25:18+00:00",
+  "retrieved_at_utc": "2026-08-28T20:57:01+00:00",
   "source_date": "2026-08-28",
   "snapshot_count": 8,
   "observation_count": 105,
@@ -11,10 +11,10 @@
       "rows": 25
     },
     {
-      "name": "spot",
-      "date": "2026-08-28",
-      "time": "11:30",
-      "rows": 26
+      "name": "reference_rate",
+      "date": "2026-08-29",
+      "time": "14:00",
+      "rows": 110
     },
     {
       "name": "swaps",
@@ -25,25 +25,25 @@
     {
       "name": "options",
       "date": "2026-08-28",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
       "name": "options",
       "date": "2026-08-28",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
       "name": "options",
       "date": "2026-08-28",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
       "name": "options",
       "date": "2026-08-28",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
@@ -52,11 +52,5 @@
       "time": "",
       "rows": 13
     }
-  ],
-  "run_observation_count": 92,
-  "reconciliation": {
-    "added_observations": 13,
-    "dataset": "implied_rates",
-    "reason": "normalized from the same run's retained official snapshot after parser mapping fix"
-  }
+  ]
 }
