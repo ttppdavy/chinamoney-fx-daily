@@ -203,6 +203,10 @@ def upsert_observations(rows: list[dict[str, str]]) -> None:
         with path.open(encoding="utf-8", newline="") as file:
             for row in csv.DictReader(file):
                 existing[tuple(row[x] for x in FIELDNAMES[:8])] = row
+    # Remove the one-off legacy field from the initial deployment.  The correct
+    # USD/CNY market reference is the published 14:00 reference rate.
+    if any(row["dataset"] == "reference_rate" for row in rows):
+        existing = {key: row for key, row in existing.items() if row["dataset"] != "spot"}
     for row in rows:
         existing[tuple(row[x] for x in FIELDNAMES[:8])] = row
     path.parent.mkdir(parents=True, exist_ok=True)
