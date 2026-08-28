@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.request import Request, urlopen
 
 from playwright.async_api import Page, async_playwright
 
@@ -26,6 +27,7 @@ from .tables import (
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+REFERENCE_RATE_API = "https://www.chinamoney.com.cn/ags/ms/cm-u-bk-fx/RefRateHis"
 
 
 @dataclass(frozen=True)
@@ -37,7 +39,7 @@ class Source:
 
 SOURCES = (
     Source("fixing", "https://www.chinamoney.com.cn/chinese/bkccpr/", ("货币对", "中间价")),
-    Source("spot", "https://www.chinamoney.com.cn/chinese/sddshl/", ("USD/CNY",)),
+    Source("reference_rate", REFERENCE_RATE_API, ("货币对", "14:00")),
     Source("swaps", "https://www.chinamoney.com.cn/chinese/bkcurvfsw/", ("期限品种", "掉期点")),
     Source("options", "https://www.chinamoney.com.cn/chinese/bkcurvfqq/", ("货币对", "波动率类型")),
     Source("implied_rates", "https://www.chinamoney.com.cn/chinese/bkcurvuir/", ("期限",)),
@@ -63,7 +65,7 @@ async def table_rows(page: Page, required_headers: tuple[str, ...]) -> tuple[lis
     raise RuntimeError(f"未找到表头：{required_headers}")
 
 
-async def read_json_responses(tasks: list[asyncio.Task[Any]]) -> list[dict[str, Any]]:
+async def read_json_responses(page: Page, tasks: list[asyncio.Task[Any]]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for task in tasks:
         try:
@@ -71,6 +73,7 @@ async def read_json_responses(tasks: list[asyncio.Task[Any]]) -> list[dict[str, 
             if value is not None:
                 results.append(value)
         except Exception:
+            # The rendered table remains an auditable fallback when a page has non-JSON assets.
             pass
     return results
 
@@ -91,16 +94,41 @@ async def load_source(page: Page, source: Source) -> tuple[dict[str, Any], list[
     headers, records = normalise_table(rows)
     body_text = await page.locator("body").inner_text()
     date, time = extract_date_and_time(body_text)
+    snapshot = {"source": source.name, "source_url": source.url, "source_date": date, "source_time": time, "headers": headers, "records": records, "table_text": table_text}
+    return snapshot, await read_json_responses(page, tasks)
+
+
+def fetch_reference_rate_payload() -> dict[str, Any]:
+    """Fetch one complete official reference-rate history payload, not webpage cells."""
+    request = Request(REFERENCE_RATE_API, data=b"", method="POST", headers={"User-Agent": UA})
+    with urlopen(request, timeout=60) as response:  # noqa: S310 - fixed first-party HTTPS endpoint
+        return json.load(response)
+
+
+async def load_reference_rate(source: Source) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    payload = await asyncio.to_thread(fetch_reference_rate_payload)
+    data = payload.get("data") or {}
+    try:
+        source_date = datetime.strptime(data["endDateTool"], "%d %b %Y").date().isoformat()
+    except (KeyError, ValueError) as exc:
+        raise RuntimeError("人民币外汇参考汇率接口未返回有效日期") from exc
+    records = [
+        {"货币对": row.get("ccyPair", ""), "14:00": row.get("rateOf14hour", ""), "原始日期": row.get("dealDate", "")}
+        for row in payload.get("records", [])
+    ]
+    usdcny = next((row for row in records if row["货币对"] == "USD/CNY" and parse_number(row["14:00"]) is not None), None)
+    if not usdcny:
+        raise RuntimeError("人民币外汇参考汇率接口未返回 USD/CNY 14:00 有效价格")
     snapshot = {
         "source": source.name,
         "source_url": source.url,
-        "source_date": date,
-        "source_time": time,
-        "headers": headers,
+        "source_date": source_date,
+        "source_time": "14:00",
+        "headers": ["货币对", "14:00", "原始日期"],
         "records": records,
-        "table_text": table_text,
+        "table_text": json.dumps(records, ensure_ascii=False),
     }
-    return snapshot, await read_json_responses(tasks)
+    return snapshot, [{"url": REFERENCE_RATE_API, "body": payload}]
 
 
 async def load_all_option_surfaces(page: Page) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -123,16 +151,8 @@ async def load_all_option_surfaces(page: Page) -> tuple[list[dict[str, Any]], li
         rows, table_text = await table_rows(page, source.required_headers)
         headers, records = normalise_table(rows)
         date, time = extract_date_and_time(await page.locator("body").inner_text())
-        snapshots.append({
-            "source": source.name,
-            "source_url": source.url,
-            "source_date": date,
-            "source_time": time,
-            "headers": headers,
-            "records": records,
-            "table_text": table_text,
-        })
-        responses.extend(await read_json_responses(tasks))
+        snapshots.append({"source": source.name, "source_url": source.url, "source_date": date, "source_time": time, "headers": headers, "records": records, "table_text": table_text})
+        responses.extend(await read_json_responses(page, tasks))
     return snapshots, responses
 
 
@@ -140,19 +160,12 @@ def fixed_observations(dataset: str, snapshot: dict[str, Any]) -> list[dict[str,
     record = find_usdcny_record(snapshot["records"])
     if not record:
         return []
-    aliases = ("中间价",) if dataset == "fixing" else ("即期", "spot")
+    aliases = ("中间价",) if dataset == "fixing" else ("14:00",)
     value = parse_number(first_value(record, aliases))
     if value is None:
         return []
-    return [{
-        "instrument": "USD/CNY",
-        "surface": "",
-        "tenor": "",
-        "metric": dataset,
-        "value": value,
-        "unit": "rate",
-        "attributes": record,
-    }]
+    metric = "fixing" if dataset == "fixing" else "reference_rate_14"
+    return [{"instrument": "USD/CNY", "surface": "", "tenor": "", "metric": metric, "value": value, "unit": "rate", "attributes": record}]
 
 
 def implied_rate_observations(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
@@ -161,20 +174,12 @@ def implied_rate_observations(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         tenor = first_value(record, ("期限", "关键期限点"))
         rate = parse_number(first_value(record, ("隐含利率", "外币隐含利率", "美元隐含利率")))
         if tenor and rate is not None:
-            output.append({
-                "instrument": "USD",
-                "surface": "",
-                "tenor": tenor,
-                "metric": "implied_usd_rate",
-                "value": rate,
-                "unit": "pct",
-                "attributes": record,
-            })
+            output.append({"instrument": "USD", "surface": "", "tenor": tenor, "metric": "implied_usd_rate", "value": rate, "unit": "pct", "attributes": record})
     return output
 
 
 def observations(dataset: str, snapshot: dict[str, Any]) -> list[dict[str, Any]]:
-    if dataset in {"fixing", "spot"}:
+    if dataset in {"fixing", "reference_rate"}:
         return fixed_observations(dataset, snapshot)
     if dataset == "swaps":
         return [{**x, "attributes": {}} for x in swap_observations(snapshot["records"])]
@@ -212,11 +217,7 @@ def validate(snapshots: list[dict[str, Any]]) -> None:
     missing = {x.name for x in SOURCES} - names
     if missing:
         raise RuntimeError(f"缺少数据集：{sorted(missing)}")
-    surfaces = {
-        first_value(x["records"][0], ("波动率类型",))
-        for x in snapshots
-        if x["source"] == "options" and x["records"]
-    }
+    surfaces = {first_value(x["records"][0], ("波动率类型",)) for x in snapshots if x["source"] == "options" and x["records"]}
     missing_surfaces = set(OPTION_SURFACES) - surfaces
     if missing_surfaces:
         raise RuntimeError(f"缺少期权波动率类型：{sorted(missing_surfaces)}")
@@ -230,6 +231,11 @@ async def run() -> None:
         snapshots: list[dict[str, Any]] = []
         raw_api: dict[str, list[dict[str, Any]]] = {}
         for source in SOURCES:
+            if source.name == "reference_rate":
+                snapshot, responses = await load_reference_rate(source)
+                snapshots.append(snapshot)
+                raw_api[source.name] = responses
+                continue
             page = await context.new_page()
             if source.name == "options":
                 source_snapshots, responses = await load_all_option_surfaces(page)
@@ -242,52 +248,29 @@ async def run() -> None:
         await browser.close()
 
     validate(snapshots)
-    source_date = next(
-        (x["source_date"] for x in snapshots if x["source_date"]),
-        datetime.now().date().isoformat(),
-    )
+    source_date = next((x["source_date"] for x in snapshots if x["source_date"]), datetime.now().date().isoformat())
     flat_rows: list[dict[str, str]] = []
     for index, snapshot in enumerate(snapshots, start=1):
         raw_path = DATA / "raw" / source_date / f"{snapshot['source']}_{index:02d}.json.gz"
-        sha = write_gzip_json(
-            raw_path,
-            {"snapshot": snapshot, "api_responses": raw_api.get(snapshot["source"], [])},
-        )
+        sha = write_gzip_json(raw_path, {"snapshot": snapshot, "api_responses": raw_api.get(snapshot["source"], [])})
         for item in observations(snapshot["source"], snapshot):
             flat_rows.append({
                 "source_date": snapshot["source_date"] or source_date,
-                "source_time": snapshot["source_time"],
-                "dataset": snapshot["source"],
-                "instrument": item["instrument"],
-                "surface": item["surface"],
-                "tenor": item["tenor"],
-                "metric": item["metric"],
-                "value": str(item["value"]),
-                "unit": item["unit"],
-                "source_url": snapshot["source_url"],
-                "retrieved_at_utc": retrieved_at,
-                "raw_sha256": sha,
+                "source_time": snapshot["source_time"], "dataset": snapshot["source"],
+                "instrument": item["instrument"], "surface": item["surface"], "tenor": item["tenor"],
+                "metric": item["metric"], "value": str(item["value"]), "unit": item["unit"],
+                "source_url": snapshot["source_url"], "retrieved_at_utc": retrieved_at, "raw_sha256": sha,
                 "attributes_json": json.dumps(item.get("attributes", {}), ensure_ascii=False, sort_keys=True),
             })
     upsert_observations(flat_rows)
-    report = {
-        "retrieved_at_utc": retrieved_at,
-        "source_date": source_date,
-        "snapshot_count": len(snapshots),
-        "observation_count": len(flat_rows),
-        "sources": [{
-            "name": x["source"],
-            "date": x["source_date"],
-            "time": x["source_time"],
-            "rows": len(x["records"]),
-        } for x in snapshots],
-    }
+    report = {"retrieved_at_utc": retrieved_at, "source_date": source_date, "snapshot_count": len(snapshots), "observation_count": len(flat_rows), "sources": [{"name": x["source"], "date": x["source_date"], "time": x["source_time"], "rows": len(x["records"])} for x in snapshots]}
     (DATA / "latest_run.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
 
 
 def main() -> None:
-    argparse.ArgumentParser().parse_args()
+    parser = argparse.ArgumentParser()
+    parser.parse_args()
     asyncio.run(run())
 
 
