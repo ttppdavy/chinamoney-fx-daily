@@ -2,7 +2,7 @@
   "retrieved_at_utc": "2026-08-28T09:25:18+00:00",
   "source_date": "2026-08-28",
   "snapshot_count": 8,
-  "observation_count": 92,
+  "observation_count": 105,
   "sources": [
     {
       "name": "fixing",
@@ -52,5 +52,11 @@
       "time": "",
       "rows": 13
     }
-  ]
+  ],
+  "run_observation_count": 92,
+  "reconciliation": {
+    "added_observations": 13,
+    "dataset": "implied_rates",
+    "reason": "normalized from the same run's retained official snapshot after parser mapping fix"
+  }
 }
