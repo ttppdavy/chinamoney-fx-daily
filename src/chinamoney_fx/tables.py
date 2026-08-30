@@ -66,9 +66,18 @@ def option_observations(records: list[dict[str, str]]) -> list[dict[str, Any]]:
         pair = first_value(r, ("货币对",))
         surface = first_value(r, ("波动率类型",))
         tenor = first_value(r, ("关键期限点", "期限"))
-        value = parse_number(first_value(r, ("波动率(%)",)))
-        if pair and surface and tenor and value is not None:
-            output.append({"instrument": pair, "surface": surface, "tenor": tenor, "metric": "implied_vol", "value": value, "unit": "pct"})
+        if not (pair and surface and tenor):
+            continue
+        # The official table publishes all three quotes.  Keep them as separate
+        # metrics so a mid-vol chart cannot accidentally be mixed with bid/ask.
+        for metric, aliases in (
+            ("implied_vol_mid", ("波动率(%)",)),
+            ("implied_vol_bid", ("波动率报买(%)",)),
+            ("implied_vol_ask", ("波动率报卖(%)",)),
+        ):
+            value = parse_number(first_value(r, aliases))
+            if value is not None:
+                output.append({"instrument": pair, "surface": surface, "tenor": tenor, "metric": metric, "value": value, "unit": "pct"})
     return output
 
 
