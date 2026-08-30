@@ -2,13 +2,6 @@ name: Collect China Money FX data
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/collect.yml"
-      - "src/**"
-      - "requirements.txt"
-      - "pyproject.toml"
   schedule:
     # GitHub cron is UTC. 09:20 UTC = 17:20 Beijing, after the 16:50 implied-rate
     # and 17:00 swap-curve publications. Weekdays only.
