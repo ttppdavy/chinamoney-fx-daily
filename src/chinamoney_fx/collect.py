@@ -7,7 +7,7 @@ import gzip
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
@@ -48,6 +48,10 @@ OPTION_SURFACES = ("ATM", "25D RR", "10D BF", "25D BF")
 FIELDNAMES = [
     "source_date", "source_time", "dataset", "instrument", "surface", "tenor", "metric", "value", "unit",
     "source_url", "retrieved_at_utc", "raw_sha256", "attributes_json",
+]
+DASHBOARD_FIELDS = [
+    "source_date", "source_time", "dataset", "instrument", "surface", "tenor", "metric", "value", "unit",
+    "day_change", "percentile_1y", "percentile_3y", "observations_1y", "observations_3y", "source_url",
 ]
 
 
@@ -134,6 +138,24 @@ async def load_reference_rate(source: Source) -> tuple[dict[str, Any], list[dict
 async def load_all_option_surfaces(page: Page) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     source = SOURCES[3]
     base, responses = await load_source(page, source)
+    # The public page defaults can change during the day.  Select 10:00 explicitly
+    # before taking any curve so the daily history is one comparable time slice.
+    time_select = page.locator("#foiv-curv-rmb-time")
+    if await time_select.count():
+        choices = await time_select.locator("option").evaluate_all("opts => opts.map(o => ({value:o.value,label:o.textContent.trim()}))")
+        ten_am = next((x for x in choices if x["label"] == "10:00"), None)
+        if not ten_am:
+            raise RuntimeError("期权页面未提供 10:00 时点")
+        await time_select.select_option(ten_am["value"])
+        await page.evaluate("doSearch()")
+        await page.wait_for_timeout(1_500)
+        rows, table_text = await table_rows(page, source.required_headers)
+        headers, records = normalise_table(rows)
+        date_text, time = extract_date_and_time(await page.locator("body").inner_text())
+        base = {"source": source.name, "source_url": source.url, "source_date": date_text, "source_time": time or "10:00", "headers": headers, "records": records, "table_text": table_text}
+    if base["source_time"] != "10:00":
+        # Do not silently label another intraday snapshot as 10:00.
+        raise RuntimeError(f"期权页面回传时点不是 10:00：{base['source_time'] or '空'}")
     snapshots = [base]
     select = page.locator("#foiv-curv-type")
     if not await select.count():
@@ -216,6 +238,55 @@ def upsert_observations(rows: list[dict[str, str]]) -> None:
         writer.writerows(sorted(existing.values(), key=lambda x: tuple(x[k] for k in FIELDNAMES[:8])))
 
 
+def percentile(values: list[float], current: float) -> float:
+    """Inclusive empirical percentile, expressed as 0-100 and rounded for display."""
+    return round(100 * sum(value <= current for value in values) / len(values), 1)
+
+
+def write_daily_dashboard() -> None:
+    """Materialise a display-ready daily panel with rolling historical percentiles."""
+    source = DATA / "observations.csv"
+    if not source.exists():
+        return
+    with source.open(encoding="utf-8", newline="") as file:
+        records = list(csv.DictReader(file))
+    groups: dict[tuple[str, ...], list[dict[str, str]]] = {}
+    key_fields = ("dataset", "instrument", "surface", "tenor", "metric", "unit", "source_time")
+    for record in records:
+        try:
+            date.fromisoformat(record["source_date"])
+            float(record["value"])
+        except (KeyError, ValueError):
+            continue
+        groups.setdefault(tuple(record[field] for field in key_fields), []).append(record)
+
+    output: list[dict[str, str]] = []
+    for rows in groups.values():
+        # One observation per date for a series.  If a retry overwrote its source
+        # payload, observations.csv already retains the final version.
+        rows.sort(key=lambda row: row["source_date"])
+        for index, row in enumerate(rows):
+            current_date = date.fromisoformat(row["source_date"])
+            current = float(row["value"])
+            prior = rows[: index + 1]
+            one_year = [float(x["value"]) for x in prior if date.fromisoformat(x["source_date"]) >= current_date - timedelta(days=365)]
+            three_year = [float(x["value"]) for x in prior if date.fromisoformat(x["source_date"]) >= current_date - timedelta(days=1095)]
+            previous = float(rows[index - 1]["value"]) if index else None
+            output.append({
+                **{field: row[field] for field in ("source_date", "source_time", "dataset", "instrument", "surface", "tenor", "metric", "value", "unit", "source_url")},
+                "day_change": "" if previous is None else str(round(current - previous, 8)),
+                "percentile_1y": str(percentile(one_year, current)),
+                "percentile_3y": str(percentile(three_year, current)),
+                "observations_1y": str(len(one_year)),
+                "observations_3y": str(len(three_year)),
+            })
+    destination = DATA / "daily_market_dashboard.csv"
+    with destination.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=DASHBOARD_FIELDS)
+        writer.writeheader()
+        writer.writerows(sorted(output, key=lambda row: (row["source_date"], row["dataset"], row["surface"], row["tenor"], row["metric"])))
+
+
 def validate(snapshots: list[dict[str, Any]]) -> None:
     names = {x["source"] for x in snapshots}
     missing = {x.name for x in SOURCES} - names
@@ -267,6 +338,7 @@ async def run() -> None:
                 "attributes_json": json.dumps(item.get("attributes", {}), ensure_ascii=False, sort_keys=True),
             })
     upsert_observations(flat_rows)
+    write_daily_dashboard()
     report = {"retrieved_at_utc": retrieved_at, "source_date": source_date, "snapshot_count": len(snapshots), "observation_count": len(flat_rows), "sources": [{"name": x["source"], "date": x["source_date"], "time": x["source_time"], "rows": len(x["records"])} for x in snapshots]}
     (DATA / "latest_run.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
