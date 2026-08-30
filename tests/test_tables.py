@@ -7,7 +7,11 @@ def test_option_table_to_observations():
         ["USD.CNY", "25D RR", "1M", "0.1200", "0.1000", "0.1400"],
     ])
     assert headers[0] == "货币对"
-    assert option_observations(records) == [{"instrument": "USD.CNY", "surface": "25D RR", "tenor": "1M", "metric": "implied_vol", "value": 0.12, "unit": "pct"}]
+    assert option_observations(records) == [
+        {"instrument": "USD.CNY", "surface": "25D RR", "tenor": "1M", "metric": "implied_vol_mid", "value": 0.12, "unit": "pct"},
+        {"instrument": "USD.CNY", "surface": "25D RR", "tenor": "1M", "metric": "implied_vol_bid", "value": 0.1, "unit": "pct"},
+        {"instrument": "USD.CNY", "surface": "25D RR", "tenor": "1M", "metric": "implied_vol_ask", "value": 0.14, "unit": "pct"},
+    ]
 
 
 def test_swap_table_to_two_metrics():
