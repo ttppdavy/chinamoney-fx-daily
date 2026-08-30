@@ -1,2 +1,2 @@
 playwright>=1.55,<2
-pytest>=8
+pytest>=8,<9
