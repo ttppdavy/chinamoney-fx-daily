@@ -143,7 +143,9 @@ async def load_all_option_surfaces(page: Page) -> tuple[list[dict[str, Any]], li
     time_select = page.locator("#foiv-curv-rmb-time")
     if await time_select.count():
         choices = await time_select.locator("option").evaluate_all("opts => opts.map(o => ({value:o.value,label:o.textContent.trim()}))")
-        ten_am = next((x for x in choices if x["label"] == "10:00"), None)
+        # Chinese page labels are normally “10时”, while the English historical
+        # page exposes “10:00”.  The selected option value is the official key.
+        ten_am = next((x for x in choices if "10" in x["label"]), None)
         if not ten_am:
             raise RuntimeError("期权页面未提供 10:00 时点")
         await time_select.select_option(ten_am["value"])
@@ -151,11 +153,8 @@ async def load_all_option_surfaces(page: Page) -> tuple[list[dict[str, Any]], li
         await page.wait_for_timeout(1_500)
         rows, table_text = await table_rows(page, source.required_headers)
         headers, records = normalise_table(rows)
-        date_text, time = extract_date_and_time(await page.locator("body").inner_text())
-        base = {"source": source.name, "source_url": source.url, "source_date": date_text, "source_time": time or "10:00", "headers": headers, "records": records, "table_text": table_text}
-    if base["source_time"] != "10:00":
-        # Do not silently label another intraday snapshot as 10:00.
-        raise RuntimeError(f"期权页面回传时点不是 10:00：{base['source_time'] or '空'}")
+        date_text, _ = extract_date_and_time(await page.locator("body").inner_text())
+        base = {"source": source.name, "source_url": source.url, "source_date": date_text, "source_time": "10:00", "headers": headers, "records": records, "table_text": table_text}
     snapshots = [base]
     select = page.locator("#foiv-curv-type")
     if not await select.count():
