@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.4.1
+// @version      0.4.2
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -13,6 +13,7 @@
 // @grant        GM_download
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @connect      raw.githubusercontent.com
 // @connect      www.chinamoney.com.cn
 // @run-at       document-idle
@@ -358,9 +359,16 @@
   }
 
   async function officialJson(url) {
-    // Do not use GM_xmlhttpRequest here: ChinaMoney rejects extension-proxy
-    // requests with 403.  Normal fetch runs in the same signed-in browser
-    // session as the page's own jQuery Ajax calls.
+    // ChinaMoney rejects requests issued by the extension sandbox.  Its own
+    // pages use jQuery Ajax, so invoke that page-context function directly.
+    const pageJq = typeof unsafeWindow !== 'undefined' ? unsafeWindow.jQuery || unsafeWindow.$ : null;
+    if (pageJq?.ajax) {
+      return new Promise((resolve, reject) => {
+        pageJq.ajax({ url, type: 'POST', dataType: 'json' })
+          .done((data) => resolve(data))
+          .fail((xhr) => reject(new Error(`官网接口读取失败：HTTP ${xhr.status || '未知'}`)));
+      });
+    }
     let response;
     try {
       response = await fetch(url, { method: 'POST', credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
