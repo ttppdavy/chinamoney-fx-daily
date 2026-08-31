@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from playwright.async_api import BrowserContext, async_playwright
+from playwright.async_api import Page, async_playwright
 
 from .collect import DATA, REFERENCE_RATE_API, UA, upsert_observations, write_daily_dashboard, write_gzip_json
 from .tables import parse_number
@@ -42,25 +42,31 @@ def text_date(value: str) -> str:
     raise ValueError(f"无法识别官方返回日期：{value}")
 
 
-async def post_json(context: BrowserContext, endpoint: str, params: dict[str, str]) -> dict[str, Any]:
+async def post_json(page: Page, endpoint: str, params: dict[str, str]) -> dict[str, Any]:
     """Use the site's normal browser session; a direct datacentre HTTP client is blocked."""
-    response = await context.request.post(endpoint + "?" + urlencode(params), timeout=90_000)
-    if not response.ok:
-        raise RuntimeError(f"官方历史接口返回 HTTP {response.status}: {endpoint}")
-    payload = await response.json()
+    url = endpoint + "?" + urlencode(params)
+    # Use a real page session.  ChinaMoney intentionally rejects some raw
+    # datacentre clients, while this is the same browser fetch its own page uses.
+    response = await page.evaluate("""async (requestUrl) => {
+        const result = await fetch(requestUrl, {method: 'POST', credentials: 'include', headers: {'X-Requested-With': 'XMLHttpRequest'}});
+        return {status: result.status, text: await result.text()};
+    }""", url)
+    if response["status"] != 200:
+        raise RuntimeError(f"官方历史接口返回 HTTP {response['status']}: {endpoint}")
+    payload = json.loads(response["text"])
     if not isinstance(payload, dict) or not isinstance(payload.get("records"), list):
         raise RuntimeError(f"官方历史接口未返回预期 JSON：{endpoint}")
     return payload
 
 
-async def paged(context: BrowserContext, endpoint: str, params: dict[str, str], page_key: str, size_key: str = "pageSize") -> list[dict[str, Any]]:
+async def paged(page: Page, endpoint: str, params: dict[str, str], page_key: str, size_key: str = "pageSize") -> list[dict[str, Any]]:
     params = {**params, size_key: "500", page_key: "1"}
-    first = await post_json(context, endpoint, params)
+    first = await post_json(page, endpoint, params)
     records = list(first["records"])
     meta = first.get("data") or {}
     pages = int(meta.get("totalPageNum") or meta.get("pageTotal") or meta.get("count") or 1)
-    for page in range(2, pages + 1):
-        payload = await post_json(context, endpoint, {**params, page_key: str(page)})
+    for page_num in range(2, pages + 1):
+        payload = await post_json(page, endpoint, {**params, page_key: str(page_num)})
         records.extend(payload["records"])
     return records
 
@@ -83,13 +89,15 @@ async def run(start: date, end: date) -> None:
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
         context = await browser.new_context(user_agent=UA, locale="zh-CN", timezone_id="Asia/Shanghai")
+        page = await context.new_page()
+        await page.goto("https://www.chinamoney.com.cn/english/bmkycvivcivchdt/", wait_until="domcontentloaded", timeout=60_000)
         # Load configs once.  Values, not display labels, are the stable official query parameters.
-        option_config = await post_json(context, OPTION_URL, {"lang": "EN", "pageSize": "1", "pageNum": "1"})
+        option_config = await post_json(page, OPTION_URL, {"lang": "EN", "pageSize": "1", "pageNum": "1"})
         option_types = {item.get("enLabel"): str(item.get("value")) for item in (option_config.get("data") or {}).get("volatilityTypeList", [])}
         option_times = [str(item.get("value")) for item in (option_config.get("data") or {}).get("tradeTimeList", []) if item.get("value")]
         if not option_times:
             raise RuntimeError("期权历史接口未返回可回填时点")
-        implied_config = await post_json(context, IMPLIED_URL, {"page": "1", "pageSize": "1"})
+        implied_config = await post_json(page, IMPLIED_URL, {"page": "1", "pageSize": "1"})
         implied_data = implied_config.get("data") or {}
         def first_id(name: str) -> str:
             values = implied_data.get(name) or []
@@ -98,7 +106,7 @@ async def run(start: date, end: date) -> None:
             return str(values[0]["value"])
         rmb_rate, spot_rate, bp = first_id("rmdRateList"), first_id("spotRateList"), first_id("bpList")
         ccy_pair = str((implied_data.get("ccyPairList") or [{"value": "USD.CNY"}])[0]["value"])
-        swap_config = await post_json(context, SWAP_URL, {"lang": "en", "page": "1", "pagesize": "1"})
+        swap_config = await post_json(page, SWAP_URL, {"lang": "en", "page": "1", "pagesize": "1"})
         swap_data = swap_config.get("data") or {}
         curve_type = str(swap_data.get("curveType") or (swap_data.get("cplist") or ["USD.CNY"])[0])
         swap_time = str((swap_data.get("timeList") or [""])[0])
@@ -108,7 +116,7 @@ async def run(start: date, end: date) -> None:
             folder = DATA / "raw" / "backfill" / f"{month_start:%Y-%m}"
 
             # 14:00 RMB FX reference rate (the user-facing spot reference).
-            reference = await post_json(context, REFERENCE_RATE_API, {"lang": "en", "indexType": "1", "startDateTool": month_start.strftime("%d %b %Y"), "endDateTool": month_end.strftime("%d %b %Y"), "currencyCode": "USD.CNY"})
+            reference = await post_json(page, REFERENCE_RATE_API, {"lang": "en", "indexType": "1", "startDateTool": month_start.strftime("%d %b %Y"), "endDateTool": month_end.strftime("%d %b %Y"), "currencyCode": "USD.CNY"})
             sha = write_gzip_json(folder / "reference_rate.json.gz", reference)
             for record in reference["records"]:
                 rate = parse_number(value(record, "rateOf14hour"))
@@ -123,7 +131,7 @@ async def run(start: date, end: date) -> None:
                     kind = option_types.get(surface)
                     if not kind:
                         raise RuntimeError(f"期权历史接口未提供 {surface}")
-                    records = await paged(context, OPTION_URL, {"lang": "EN", "tradeTime": trade_time, "ccyPair": "USD.CNY", "volatilityType": kind, "startDate": start_text, "endDate": end_text}, "pageNum")
+                    records = await paged(page, OPTION_URL, {"lang": "EN", "tradeTime": trade_time, "ccyPair": "USD.CNY", "volatilityType": kind, "startDate": start_text, "endDate": end_text}, "pageNum")
                     option_raw[f"{trade_time}_{surface}"] = records
                     for record in records:
                         source_date = text_date(value(record, "tradeDate"))
@@ -138,7 +146,7 @@ async def run(start: date, end: date) -> None:
                 if item["raw_sha256"] == "PENDING":
                     item["raw_sha256"] = option_sha
 
-            swap_records = await paged(context, SWAP_URL, {"lang": "en", "startDate": start_text, "endDate": end_text, "curveType": curve_type, "time": swap_time}, "page", "pagesize")
+            swap_records = await paged(page, SWAP_URL, {"lang": "en", "startDate": start_text, "endDate": end_text, "curveType": curve_type, "time": swap_time}, "page", "pagesize")
             swap_sha = write_gzip_json(folder / "swaps.json.gz", swap_records)
             for record in swap_records:
                 source_date, tenor = text_date(value(record, "curveTime", "curveTimeEN")), value(record, "tenor")
@@ -147,13 +155,14 @@ async def run(start: date, end: date) -> None:
                     if tenor and quote is not None:
                         all_rows.append(row(source_date, value(record, "time") or swap_time, "swaps", curve_type, "", tenor, metric, quote, unit, SWAP_URL, record, retrieved_at, swap_sha))
 
-            implied_records = await paged(context, IMPLIED_URL, {"rmbRateSrc": rmb_rate, "spotrateSrc": spot_rate, "bpSrc": bp, "startDate": start_text, "endDate": end_text, "ccyPair": ccy_pair}, "page")
+            implied_records = await paged(page, IMPLIED_URL, {"rmbRateSrc": rmb_rate, "spotrateSrc": spot_rate, "bpSrc": bp, "startDate": start_text, "endDate": end_text, "ccyPair": ccy_pair}, "page")
             implied_sha = write_gzip_json(folder / "implied_rates.json.gz", implied_records)
             for record in implied_records:
                 source_date, tenor = text_date(value(record, "showDateCn", "tradeDate")), value(record, "tl")
                 rate = parse_number(value(record, "dollarRateDes", "dollarRate"))
                 if tenor and rate is not None:
                     all_rows.append(row(source_date, "16:50", "implied_rates", "USD", "", tenor, "implied_usd_rate", rate, "pct", IMPLIED_URL, record, retrieved_at, implied_sha))
+        await page.close()
         await browser.close()
     upsert_observations(all_rows)
     write_daily_dashboard()
