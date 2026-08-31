@@ -6,6 +6,7 @@ import csv
 import gzip
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -25,7 +26,9 @@ from .tables import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
+# In desktop mode this points to the user's Desktop folder.  Keeping it as an
+# environment setting lets the same audited collector run locally or in CI.
+DATA = Path(os.environ.get("CHINAMONEY_DATA_DIR", str(ROOT / "data"))).expanduser()
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
 REFERENCE_RATE_API = "https://www.chinamoney.com.cn/ags/ms/cm-u-bk-fx/RefRateHis"
 
@@ -271,6 +274,36 @@ def write_daily_dashboard() -> None:
         writer.writerows(sorted(output, key=lambda row: (row["source_date"], row["dataset"], row["surface"], row["tenor"], row["metric"])))
 
 
+def write_excel_workbook() -> None:
+    """Create one presentation-ready workbook only for the local desktop mode."""
+    if os.environ.get("CHINAMONEY_CREATE_XLSX") != "1":
+        return
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    for filename, title in (("daily_market_dashboard.csv", "每日数据与分位"), ("observations.csv", "全部原始观测")):
+        source = DATA / filename
+        if not source.exists():
+            continue
+        sheet = workbook.create_sheet(title)
+        with source.open(encoding="utf-8", newline="") as file:
+            for row in csv.reader(file):
+                sheet.append(row)
+        sheet.freeze_panes = "A2"
+        for cell in sheet[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="E87525")
+        sheet.auto_filter.ref = sheet.dimensions
+        for column in sheet.columns:
+            letter = column[0].column_letter
+            width = min(max(len(str(cell.value or "")) for cell in column) + 2, 42)
+            sheet.column_dimensions[letter].width = width
+    if workbook.sheetnames:
+        workbook.save(DATA / "中国货币网外汇历史.xlsx")
+
+
 def validate(snapshots: list[dict[str, Any]]) -> None:
     names = {x["source"] for x in snapshots}
     missing = {x.name for x in SOURCES} - names
@@ -323,6 +356,7 @@ async def run() -> None:
             })
     upsert_observations(flat_rows)
     write_daily_dashboard()
+    write_excel_workbook()
     report = {"retrieved_at_utc": retrieved_at, "source_date": source_date, "snapshot_count": len(snapshots), "observation_count": len(flat_rows), "sources": [{"name": x["source"], "date": x["source_date"], "time": x["source_time"], "rows": len(x["records"])} for x in snapshots]}
     (DATA / "latest_run.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
