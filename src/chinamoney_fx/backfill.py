@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 
 from playwright.async_api import Page, async_playwright
 
-from .collect import DATA, REFERENCE_RATE_API, UA, upsert_observations, write_daily_dashboard, write_gzip_json
+from .collect import DATA, REFERENCE_RATE_API, UA, upsert_observations, write_daily_dashboard, write_excel_workbook, write_gzip_json
 from .tables import parse_number
 
 AGS = "https://www.chinamoney.com.cn/ags/ms/cm-u-bk-fx/"
@@ -166,6 +166,7 @@ async def run(start: date, end: date) -> None:
         await browser.close()
     upsert_observations(all_rows)
     write_daily_dashboard()
+    write_excel_workbook()
     print(json.dumps({"start": start.isoformat(), "end": end.isoformat(), "observation_count": len(all_rows)}, ensure_ascii=False))
 
 
