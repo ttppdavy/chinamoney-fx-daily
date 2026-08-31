@@ -1,0 +1,229 @@
+// ==UserScript==
+// @name         中国货币网外汇助手
+// @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
+// @version      0.1.0
+// @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
+// @author       Yutao
+// @match        https://www.chinamoney.com.cn/*
+// @match        http://www.chinamoney.com.cn/*
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_download
+// @grant        GM_addStyle
+// @run-at       document-idle
+// ==/UserScript==
+
+(async () => {
+  'use strict';
+
+  const STORE = 'cmfx.snapshots.v1';
+  const MAX_SNAPSHOTS = 12_000;
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+
+  function sourceType() {
+    const path = location.pathname;
+    if (/bkccpr/i.test(path)) return 'fixing';
+    if (/hombtbrrthdt|RefRateHis/i.test(path)) return 'reference_rate';
+    if (/bkcurvfsw|bmkycvfscfschdt/i.test(path)) return 'swaps';
+    if (/bkcurvfqq|bmkycvivcivchdt/i.test(path)) return 'options';
+    if (/bkcurvuir|bkcurvuiruuh/i.test(path)) return 'implied_rates';
+    return 'unknown';
+  }
+
+  function dateOnPage() {
+    const match = document.body.innerText.match(/20\d{2}[\/-]\d{1,2}[\/-]\d{1,2}/);
+    return match ? match[0].replaceAll('/', '-').replace(/-(\d)(?=-|$)/g, '-0$1') : today();
+  }
+
+  function selectedOptionLabel(selector) {
+    const option = $(`${selector} option:checked`);
+    return clean(option?.textContent);
+  }
+
+  function findDataTable() {
+    const hints = {
+      fixing: ['货币对', '中间价'], reference_rate: ['货币对', '14'], swaps: ['期限', '掉期'],
+      options: ['货币对', '波动率'], implied_rates: ['期限', '隐含利率'],
+    }[sourceType()] || [];
+    return [...document.querySelectorAll('table')].find((table) => {
+      const content = clean(table.innerText);
+      return hints.length && hints.every((hint) => content.includes(hint));
+    });
+  }
+
+  function parseTable() {
+    const table = findDataTable();
+    if (!table) throw new Error('当前页面还没有找到完整的数据表。请先在官网点“查询”，等表格出现后再采集。');
+    const rows = [...table.querySelectorAll('tr')]
+      .map((row) => [...row.querySelectorAll('th,td')].map((cell) => clean(cell.innerText)))
+      .filter((row) => row.some(Boolean));
+    const headers = rows.shift();
+    if (!headers || rows.length === 0) throw new Error('表格没有可保存的数据行。');
+    return { headers, rows };
+  }
+
+  function optionTime() {
+    const pageValue = selectedOptionLabel('#foiv-curv-rmb-time');
+    return pageValue.includes('10') ? '10:00' : pageValue;
+  }
+
+  function findColumn(headers, text) {
+    return headers.findIndex((header) => header.includes(text));
+  }
+
+  function normaliseSnapshot() {
+    const { headers, rows } = parseTable();
+    const dataset = sourceType();
+    const sourceDate = dateOnPage();
+    let sourceTime = '';
+    let surface = '';
+    if (dataset === 'options') {
+      sourceTime = optionTime();
+      // Guardrail: we store the 10:00 option curve only; other official page
+      // views can still be downloaded via the original Excel button.
+      if (sourceTime !== '10:00') throw new Error(`期权当前选择的是“${sourceTime || '未识别'}”。请在官网先选 10:00，再采集。`);
+      surface = selectedOptionLabel('#foiv-curv-type');
+    }
+    const dateIndex = findColumn(headers, '日期');
+    const timeIndex = findColumn(headers, '时');
+    const rowsWithMeta = rows.map((row) => ({
+      source_date: dateIndex >= 0 && /^20\d{2}/.test(row[dateIndex]) ? row[dateIndex].replaceAll('/', '-') : sourceDate,
+      source_time: dataset === 'options' ? '10:00' : (timeIndex >= 0 ? row[timeIndex] : sourceTime),
+      dataset, surface, values: row,
+    }));
+    return { captured_at: new Date().toISOString(), source_url: location.href, dataset, source_date: sourceDate, source_time: sourceTime, surface, headers, rows: rowsWithMeta };
+  }
+
+  async function snapshots() {
+    const saved = await GM_getValue(STORE, []);
+    return Array.isArray(saved) ? saved : [];
+  }
+
+  async function saveCurrent() {
+    const current = normaliseSnapshot();
+    const saved = await snapshots();
+    const key = `${current.dataset}|${current.source_date}|${current.source_time}|${current.surface}|${current.source_url}`;
+    const next = [current, ...saved.filter((item) => `${item.dataset}|${item.source_date}|${item.source_time}|${item.surface}|${item.source_url}` !== key)].slice(0, MAX_SNAPSHOTS);
+    await GM_setValue(STORE, next);
+    return current;
+  }
+
+  function metricValue(snapshot, row) {
+    const { headers } = snapshot;
+    const number = (column) => Number(String(row.values[column] || '').replaceAll(',', '').replace('%', ''));
+    if (snapshot.dataset === 'options') {
+      const mid = findColumn(headers, '波动率(%)');
+      return mid >= 0 ? number(mid) : NaN;
+    }
+    if (snapshot.dataset === 'swaps') {
+      const points = findColumn(headers, '掉期点');
+      return points >= 0 ? number(points) : NaN;
+    }
+    if (snapshot.dataset === 'implied_rates') {
+      const rate = findColumn(headers, '隐含利率');
+      return rate >= 0 ? number(rate) : NaN;
+    }
+    const rate = findColumn(headers, snapshot.dataset === 'fixing' ? '中间价' : '14');
+    return rate >= 0 ? number(rate) : NaN;
+  }
+
+  function seriesKey(snapshot, row) {
+    const h = snapshot.headers;
+    const pair = row.values[findColumn(h, '货币对')] || '';
+    const tenor = row.values[findColumn(h, '期限')] || '';
+    return [snapshot.dataset, snapshot.surface, pair, tenor].map(clean).join('|');
+  }
+
+  async function summaryRows() {
+    const all = await snapshots();
+    const flat = all.flatMap((snapshot) => snapshot.rows.map((row) => ({ snapshot, row, value: metricValue(snapshot, row), key: seriesKey(snapshot, row) })))
+      .filter((item) => Number.isFinite(item.value));
+    const groups = new Map();
+    flat.forEach((item) => groups.set(item.key, [...(groups.get(item.key) || []), item]));
+    return flat.map((item) => {
+      const history = groups.get(item.key).filter((x) => x.row.source_date <= item.row.source_date).sort((a, b) => a.row.source_date.localeCompare(b.row.source_date));
+      const values = history.map((x) => x.value);
+      const percentile = values.length ? (100 * values.filter((x) => x <= item.value).length / values.length).toFixed(1) : '';
+      const previous = history.length > 1 ? history.at(-2).value : null;
+      return { date: item.row.source_date, time: item.row.source_time, dataset: item.snapshot.dataset, surface: item.snapshot.surface, series: item.key, value: item.value, change: previous === null ? '' : (item.value - previous).toFixed(6), percentile, samples: values.length, source_url: item.snapshot.source_url };
+    }).sort((a, b) => `${b.date}${b.series}`.localeCompare(`${a.date}${a.series}`));
+  }
+
+  function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
+  function download(name, content, mime = 'application/vnd.ms-excel;charset=utf-8') {
+    const url = URL.createObjectURL(new Blob(['\ufeff', content], { type: mime }));
+    GM_download({ url, name, saveAs: true, onload: () => URL.revokeObjectURL(url), onerror: () => URL.revokeObjectURL(url) });
+  }
+
+  function exportCurrent() {
+    const snapshot = normaliseSnapshot();
+    const table = `<table><thead><tr>${snapshot.headers.map((x) => `<th>${escapeHtml(x)}</th>`).join('')}</tr></thead><tbody>${snapshot.rows.map((r) => `<tr>${r.values.map((x) => `<td>${escapeHtml(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    download(`中国货币网_${snapshot.dataset}_${snapshot.source_date}.xls`, `<html><meta charset="utf-8"><body>${table}</body></html>`);
+  }
+
+  async function exportHistory() {
+    const rows = await summaryRows();
+    if (!rows.length) throw new Error('还没有本地历史快照。先在官网查询相应日期，再点击“采集当前页”。');
+    const headers = ['日期', '时点', '模块', '曲面', '序列', '数值', '日变动', '历史分位(%)', '样本数', '来源链接'];
+    const body = rows.map((r) => [r.date, r.time, r.dataset, r.surface, r.series, r.value, r.change, r.percentile, r.samples, r.source_url]);
+    const table = `<table><thead><tr>${headers.map((x) => `<th>${x}</th>`).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((x) => `<td>${escapeHtml(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    download(`中国货币网外汇历史汇总_${today()}.xls`, `<html><meta charset="utf-8"><body>${table}</body></html>`);
+  }
+
+  async function renderHistory(container) {
+    const rows = await summaryRows();
+    if (!rows.length) { container.innerHTML = ''; return 0; }
+    container.innerHTML = `<table><thead><tr><th>日期</th><th>序列</th><th>数值</th><th>分位</th></tr></thead><tbody>${rows.slice(0, 12).map((r) => `<tr><td>${escapeHtml(r.date)}</td><td title="${escapeHtml(r.series)}">${escapeHtml(r.series).slice(-18)}</td><td>${escapeHtml(r.value)}</td><td>${escapeHtml(r.percentile)}%</td></tr>`).join('')}</tbody></table>`;
+    return rows.length;
+  }
+
+  function officialDownload() {
+    const button = [...document.querySelectorAll('a,button,input[type="button"]')].find((node) => /导出\s*Excel|下载|Save to Excel/i.test(clean(node.value || node.textContent)));
+    if (!button) throw new Error('此页面未找到官网“导出 Excel”按钮。请先在官网选择日期/曲面后手工导出。');
+    button.click();
+  }
+
+  function mount() {
+    const host = document.createElement('section');
+    host.id = 'cmfx-assistant';
+    host.innerHTML = `
+      <button class="cmfx-toggle">FX</button>
+      <div class="cmfx-card" hidden>
+        <strong>中国货币网外汇助手</strong>
+        <span class="cmfx-note">本地保存；期权只认 10:00</span>
+        <button data-action="save">采集当前页</button>
+        <button data-action="current">导出当前 Excel</button>
+        <button data-action="official">官网下载 Excel</button>
+        <button data-action="history">展示 / 导出历史</button>
+        <button data-action="clear" class="cmfx-danger">清空本地历史</button>
+        <p class="cmfx-status">当前模块：${sourceType()}</p>
+        <div class="cmfx-preview"></div>
+      </div>`;
+    document.body.append(host);
+    const card = $('.cmfx-card', host); const status = $('.cmfx-status', host); const preview = $('.cmfx-preview', host);
+    $('.cmfx-toggle', host).onclick = () => { card.hidden = !card.hidden; };
+    host.addEventListener('click', async (event) => {
+      const action = event.target.dataset.action;
+      if (!action) return;
+      try {
+        if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已保存：${saved.source_date}，${saved.rows.length} 行`; }
+        if (action === 'current') { exportCurrent(); status.textContent = '已下载当前表格'; }
+        if (action === 'official') { officialDownload(); status.textContent = '已调用官网导出'; }
+        if (action === 'history') { const count = await renderHistory(preview); status.textContent = `本地历史：${count} 条数值记录，已下载汇总 Excel（含分位数）`; await exportHistory(); }
+        if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); preview.innerHTML = ''; status.textContent = '本地历史已清空'; }
+      } catch (error) { status.textContent = `未完成：${error.message}`; }
+    });
+  }
+
+  GM_addStyle(`
+    #cmfx-assistant{position:fixed;right:18px;bottom:18px;z-index:2147483647;font:13px/1.4 -apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif}
+    #cmfx-assistant button{border:0;border-radius:7px;padding:8px 10px;background:#f27822;color:#fff;cursor:pointer;margin:4px 0;font:inherit}
+    #cmfx-assistant .cmfx-toggle{border-radius:50%;width:48px;height:48px;font-weight:700;float:right;box-shadow:0 4px 14px #0004}
+    #cmfx-assistant .cmfx-card{clear:both;width:260px;background:#fff;border-radius:10px;box-shadow:0 8px 28px #0004;padding:14px;margin-bottom:10px;color:#222}
+    #cmfx-assistant strong,#cmfx-assistant .cmfx-note{display:block}.cmfx-note{color:#777;font-size:11px;margin:3px 0 8px}
+    #cmfx-assistant .cmfx-card button{display:block;width:100%;text-align:left}.cmfx-danger{background:#777!important}.cmfx-status{font-size:11px;color:#555;margin:8px 0 0}#cmfx-assistant .cmfx-preview{max-height:200px;overflow:auto;margin-top:7px}#cmfx-assistant .cmfx-preview table{font-size:10px;border-collapse:collapse;width:100%}#cmfx-assistant .cmfx-preview td,#cmfx-assistant .cmfx-preview th{border-bottom:1px solid #eee;padding:3px;text-align:left;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  `);
+  mount();
+})();
