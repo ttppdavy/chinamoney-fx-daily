@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.5.1
+// @version      0.5.2
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -462,25 +462,36 @@
 
   async function backfillOptionCurves(startDate, progress) {
     const root = 'https://www.chinamoney.com.cn';
+    const concurrency = 4;
     const endDate = today();
     const jobs = optionBackfillJobs(startDate, endDate);
     const savedState = await GM_getValue(OPTION_BACKFILL_STORE, {});
     let index = savedState.startDate === startDate && savedState.endDate === endDate ? Number(savedState.index || 0) : 0;
     let savedPoints = Number(savedState.savedPoints || 0);
-    for (; index < jobs.length; index += 1) {
-      const job = jobs[index];
-      const parameters = new URLSearchParams({ ccyPair: 'USD.CNY', volatilitySurface: job.value, ccyTime: job.time, ccyDate: job.date });
-      const result = await officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv?${parameters}`);
-      if (result.head?.rep_code && String(result.head.rep_code) !== '200') throw new Error(`期权曲线接口返回 ${result.head.rep_code}（${job.date} ${job.time} ${job.label}）`);
-      const points = (result.records || []).flatMap((record) => [
+    for (; index < jobs.length; index += concurrency) {
+      const batch = jobs.slice(index, index + concurrency);
+      // A batch commits only after all its requests return. If a request is
+      // interrupted, the saved index remains at this batch's first item, so
+      // clicking again simply re-runs at most four idempotent data writes.
+      const responses = await Promise.all(batch.map(async (job) => {
+        const parameters = new URLSearchParams({ ccyPair: 'USD.CNY', volatilitySurface: job.value, ccyTime: job.time, ccyDate: job.date });
+        const result = await officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv?${parameters}`);
+        if (result.head?.rep_code && String(result.head.rep_code) !== '200') throw new Error(`期权曲线接口返回 ${result.head.rep_code}（${job.date} ${job.time} ${job.label}）`);
+        return { job, records: result.records || [] };
+      }));
+      const points = responses.flatMap(({ job, records }) => records.flatMap((record) => [
         point(job.date, job.time, 'options', job.label, record.tenor, 'implied_vol_mid', record.midVolatilityStr, 'pct'),
         point(job.date, job.time, 'options', job.label, record.tenor, 'implied_vol_bid', record.bidVolatilityStr, 'pct'),
         point(job.date, job.time, 'options', job.label, record.tenor, 'implied_vol_ask', record.askVolatilityStr, 'pct'),
-      ]).filter(Boolean);
+      ])).filter(Boolean);
       await putHistoryPoints(points); savedPoints += points.length;
-      if ((index + 1) % 5 === 0 || index + 1 === jobs.length) await GM_setValue(OPTION_BACKFILL_STORE, { startDate, endDate, index: index + 1, savedPoints });
-      if ((index + 1) % 10 === 0 || index + 1 === jobs.length) progress(`期权回填：${index + 1}/${jobs.length} 请求；已保存 ${savedPoints} 条，${job.date} ${job.time} ${job.label}`);
-      await pause(90);
+      const completed = index + batch.length;
+      await GM_setValue(OPTION_BACKFILL_STORE, { startDate, endDate, index: completed, savedPoints });
+      if (completed % 12 === 0 || completed === jobs.length) {
+        const last = batch.at(-1);
+        progress(`期权回填：${completed}/${jobs.length} 请求（4 路并发）；已保存 ${savedPoints} 条，${last.date} ${last.time} ${last.label}`);
+      }
+      await pause(60);
     }
     await GM_setValue(OPTION_BACKFILL_STORE, { startDate, endDate, index: 0, savedPoints, completedAt: new Date().toISOString() });
     return savedPoints;
@@ -498,7 +509,7 @@
     host.innerHTML = `
       <button class="cmfx-toggle">FX</button>
       <div class="cmfx-card" hidden>
-        <strong>中国货币网外汇助手 <small>v0.5.1</small></strong>
+        <strong>中国货币网外汇助手 <small>v0.5.2</small></strong>
         <span class="cmfx-note">四类最新均走官网接口；期权历史按日期、时点、曲面逐笔回填</span>
         <button data-action="all">一键抓取四类官网最新</button>
         <button data-action="backfill">期权回填 2023 至今（可续跑）</button>
@@ -521,7 +532,7 @@
         if (action === 'all') { status.textContent = '正在从四类官网接口抓取…'; const count = await saveMany(await collectFourOfficialSources()); await renderHistory(preview); status.textContent = `四类官网数据已保存：${count} 行`; }
         if (action === 'backfill') {
           const startDate = '2023-01-01';
-          if (!confirm('将通过 FoivltltyCurv 按每个交易日、5 个时点、ATM/25D RR/10D BF/25D BF 逐笔回填。首次约 2 万次官网请求，需保持此页面打开；中断后再次点击会从断点继续。是否开始？')) return;
+          if (!confirm('将通过 FoivltltyCurv 按每个交易日、5 个时点、ATM/25D RR/10D BF/25D BF 逐笔回填。使用 4 路并发，需保持此页面打开；中断后再次点击会从断点继续。是否开始？')) return;
           const saved = await backfillOptionCurves(startDate, (message) => { status.textContent = message; });
           const count = await renderHistory(preview); status.textContent = `期权历史回填完成，累计 ${saved} 条；已生成 ${count} 个最新序列分位`; }
         if (action === 'current') { await exportCurrent(); status.textContent = '已下载当前全部页表格'; }
