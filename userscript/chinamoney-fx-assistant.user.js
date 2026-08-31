@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.4.2
+// @version      0.4.3
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -359,25 +359,22 @@
   }
 
   async function officialJson(url) {
-    // ChinaMoney rejects requests issued by the extension sandbox.  Its own
-    // pages use jQuery Ajax, so invoke that page-context function directly.
+    // ChinaMoney rejects requests issued by the extension sandbox. Its own
+    // pages use jQuery Ajax, so invoke that exact same, same-origin Ajax path.
+    // Keeping only a relative URL is important: it preserves the page's
+    // Referer, cookies and origin checks (the old absolute/sandbox fallback
+    // was the source of the HTTP 403 seen during history backfill).
     const pageJq = typeof unsafeWindow !== 'undefined' ? unsafeWindow.jQuery || unsafeWindow.$ : null;
     if (pageJq?.ajax) {
+      const target = new URL(url, unsafeWindow.location.href);
+      const requestUrl = target.origin === unsafeWindow.location.origin ? `${target.pathname}${target.search}` : target.href;
       return new Promise((resolve, reject) => {
-        pageJq.ajax({ url, type: 'POST', dataType: 'json' })
+        pageJq.ajax({ url: requestUrl, type: 'POST', dataType: 'json', cache: false, xhrFields: { withCredentials: true } })
           .done((data) => resolve(data))
-          .fail((xhr) => reject(new Error(`官网接口读取失败：HTTP ${xhr.status || '未知'}`)));
+          .fail((xhr) => reject(new Error(`官网页面请求失败：HTTP ${xhr.status || '未知'}`)));
       });
     }
-    let response;
-    try {
-      response = await fetch(url, { method: 'POST', credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-    } catch (error) {
-      throw new Error(`官网接口连接失败：${error.message}`);
-    }
-    if (!response.ok) throw new Error(`官网接口读取失败：HTTP ${response.status}`);
-    try { return await response.json(); }
-    catch { throw new Error('官网接口未返回 JSON 数据。'); }
+    throw new Error('官网页面尚未加载完毕。请等待 3 秒后重试；为避免 403，插件不会改用跨上下文请求。');
   }
 
   function isoDate(value) {
@@ -462,6 +459,8 @@
     const swapApi = `${root}/ags/ms/cm-u-bk-fx/FxSwapHisory`;
     const impliedApi = `${root}/ags/ms/cm-u-bk-fx/IuirCurvHis`;
     const fixingApi = `${root}/ags/ms/cm-u-bk-ccpr/CcprHisNew`;
+    // Ask the official page for its select-option IDs.  The values (rather
+    // than display labels) occasionally change and must not be guessed.
     const [optionConfig, impliedConfig, swapConfig] = await Promise.all([
       officialJson(`${optionApi}?lang=EN&pageSize=1&pageNum=1`),
       officialJson(`${impliedApi}?page=1&pageSize=1`),
@@ -516,8 +515,8 @@
     host.innerHTML = `
       <button class="cmfx-toggle">FX</button>
       <div class="cmfx-card" hidden>
-        <strong>中国货币网外汇助手</strong>
-        <span class="cmfx-note">按当前页面时点保存；自动翻页采集</span>
+        <strong>中国货币网外汇助手 <small>v0.4.3</small></strong>
+        <span class="cmfx-note">按当前页面时点保存；自动翻页采集；回填走官网同源请求</span>
         <button data-action="all">一键抓取四类官网最新</button>
         <button data-action="backfill">一键回填历史（2023至今）</button>
         <button data-action="save">自动采集全部页</button>
