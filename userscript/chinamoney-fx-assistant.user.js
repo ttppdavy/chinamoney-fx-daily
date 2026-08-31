@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.2.0
+// @version      0.3.0
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -14,6 +14,7 @@
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @connect      raw.githubusercontent.com
+// @connect      www.chinamoney.com.cn
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -263,6 +264,72 @@
     return rows.length;
   }
 
+  function officialJson(url) {
+    return new Promise((resolve, reject) => GM_xmlhttpRequest({
+      method: 'POST', url, headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      onload: (response) => {
+        try {
+          if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+          resolve(JSON.parse(response.responseText));
+        } catch (error) { reject(new Error(`官网接口读取失败：${error.message}`)); }
+      },
+      onerror: () => reject(new Error('官网接口连接失败。')),
+    }));
+  }
+
+  function isoDate(value) {
+    const matched = String(value || '').match(/(20\d{2})\D+(\d{1,2})\D+(\d{1,2})/);
+    return matched ? `${matched[1]}-${matched[2].padStart(2, '0')}-${matched[3].padStart(2, '0')}` : today();
+  }
+
+  function directSnapshot(dataset, sourceDate, sourceTime, surface, headers, records, sourceUrl) {
+    return {
+      captured_at: new Date().toISOString(), source_url: sourceUrl, dataset, source_date: sourceDate, source_time: sourceTime, surface, headers,
+      rows: records.map((values) => ({ source_date: sourceDate, source_time: sourceTime, dataset, surface, values: values.map((value) => clean(value)) })),
+    };
+  }
+
+  async function collectFourOfficialSources() {
+    const root = 'https://www.chinamoney.com.cn';
+    const [fixing, swapConfig, implied, optionConfig] = await Promise.all([
+      officialJson(`${root}/r/cms/www/chinamoney/data/fx/ccpr.json`),
+      officialJson(`${root}/ags/ms/cm-u-bk-fx/FxSwapCp`),
+      officialJson(`${root}/ags/ms/cm-u-bk-fx/IuirCurv`),
+      officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv`),
+    ]);
+    const collected = [];
+    const fixingDate = isoDate(fixing.data?.lastDate);
+    collected.push(directSnapshot('fixing', fixingDate, '09:15', '', ['货币对', '中间价', '变动(BP)'], (fixing.records || []).map((r) => [r.vrtEName || r.vrtName, r.price, r.bp]), `${root}/chinese/bkccpr/`));
+
+    const swapPair = swapConfig.data?.cplist?.[0] || 'USD.CNY';
+    const swap = await officialJson(`${root}/r/cms/www/chinamoney/data/fx/fx-sw-curv-${swapPair}.json`);
+    const swapDate = isoDate(swap.data?.showDateCN || swap.data?.showDate);
+    collected.push(directSnapshot('swaps', swapDate, swap.data?.time || '', '', ['期限品种', '掉期点(Pips)', '掉期点数据源', '全价汇率', '远端起息日'], (swap.data?.voArray || []).map((r) => [r.tenor, r.points, r.source || r.sourceCN, r.swapAllPrc, r.valueDate || r.valueDateCN]), `${root}/chinese/bkcurvfsw/`));
+
+    const impliedDate = isoDate(implied.data?.showDateCN);
+    collected.push(directSnapshot('implied_rates', impliedDate, implied.data?.time || '16:50', '', ['期限', '隐含利率(%)', '人民币利率(%)', '即期汇率', '远/掉期点(Pips)'], (implied.records || []).map((r) => [r.tl, r.dollarRateDes || r.dollarRate, r.rmbRate || r.rmbRateStr, r.spotPrice || r.spotrateStr, r.bp || r.bpSrcStr]), `${root}/chinese/bkcurvuir/`));
+
+    const optionData = optionConfig.data || {};
+    const optionDate = isoDate(optionData.ccyDate);
+    const selectedTime = optionData.ccyTime || '';
+    const surfaces = (optionData.volatilitySurfaceList || []).filter((item) => /ATM|25D\s*RR|10D\s*BF|25D\s*BF/i.test(`${item.cnLabel || ''} ${item.enLabel || ''}`));
+    for (const item of (surfaces.length ? surfaces : optionData.volatilitySurfaceList || [])) {
+      const result = await officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv?ccyPair=${encodeURIComponent(optionData.ccyPair || 'USD.CNY')}&volatilitySurface=${encodeURIComponent(item.value)}&ccyTime=${encodeURIComponent(selectedTime)}&ccyDate=${encodeURIComponent(optionData.ccyDate || '')}`);
+      const surface = item.cnLabel || item.enLabel || item.value;
+      collected.push(directSnapshot('options', optionDate, selectedTime, surface, ['货币对', '波动率类型', '关键期限点', '波动率(%)', '波动率报买(%)', '波动率报卖(%)'], (result.records || []).map((r) => [r.ccyPair || optionData.ccyPair, r.volatilityType || surface, r.tenor, r.midVolatilityStr, r.bidVolatilityStr, r.askVolatilityStr]), `${root}/chinese/bkcurvfqq/`));
+    }
+    return collected;
+  }
+
+  async function saveMany(snapshotsToSave) {
+    const saved = await snapshots();
+    const map = new Map(saved.map((item) => [`${item.dataset}|${item.source_date}|${item.source_time}|${item.surface}|${item.source_url}`, item]));
+    snapshotsToSave.forEach((item) => map.set(`${item.dataset}|${item.source_date}|${item.source_time}|${item.surface}|${item.source_url}`, item));
+    const next = [...map.values()].sort((a, b) => b.captured_at.localeCompare(a.captured_at)).slice(0, MAX_SNAPSHOTS);
+    await GM_setValue(STORE, next);
+    return snapshotsToSave.reduce((total, item) => total + item.rows.length, 0);
+  }
+
   function officialDownload() {
     const button = [...document.querySelectorAll('a,button,input[type="button"]')].find((node) => /导出\s*Excel|下载|Save to Excel/i.test(clean(node.value || node.textContent)));
     if (!button) throw new Error('此页面未找到官网“导出 Excel”按钮。请先在官网选择日期/曲面后手工导出。');
@@ -277,10 +344,10 @@
       <div class="cmfx-card" hidden>
         <strong>中国货币网外汇助手</strong>
         <span class="cmfx-note">按当前页面时点保存；自动翻页采集</span>
+        <button data-action="all">一键抓取四类官网最新</button>
         <button data-action="save">自动采集全部页</button>
         <button data-action="current">导出当前 Excel</button>
         <button data-action="official">官网下载 Excel</button>
-        <button data-action="sync">同步 GitHub 长期历史</button>
         <button data-action="history">展示 / 导出历史</button>
         <button data-action="clear" class="cmfx-danger">清空本地历史</button>
         <p class="cmfx-status">当前模块：${sourceType()}</p>
@@ -294,9 +361,9 @@
       if (!action) return;
       try {
         if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已自动采集：${saved.source_date}，${saved.rows.length} 行`; }
+        if (action === 'all') { status.textContent = '正在从四类官网接口抓取…'; const count = await saveMany(await collectFourOfficialSources()); await renderHistory(preview); status.textContent = `四类官网数据已保存：${count} 行`; }
         if (action === 'current') { await exportCurrent(); status.textContent = '已下载当前全部页表格'; }
         if (action === 'official') { officialDownload(); status.textContent = '已调用官网导出'; }
-        if (action === 'sync') { const count = await syncGithubHistory(); status.textContent = `已同步 GitHub 长期历史：${count} 行`; }
         if (action === 'history') { const count = await renderHistory(preview); status.textContent = `本地历史：${count} 条数值记录，已下载汇总 Excel（含分位数）`; await exportHistory(); }
         if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); preview.innerHTML = ''; status.textContent = '本地历史已清空'; }
       } catch (error) { status.textContent = `未完成：${error.message}`; }
