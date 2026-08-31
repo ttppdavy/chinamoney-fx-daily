@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.4.4
+// @version      0.5.0
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -24,6 +24,7 @@
 
   const STORE = 'cmfx.snapshots.v1';
   const CLOUD_STORE = 'cmfx.github-history.v1';
+  const OPTION_BACKFILL_STORE = 'cmfx.option-backfill.v1';
   const DB_NAME = 'cmfx-local-history-v1';
   const DASHBOARD_URL = 'https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/data/daily_market_dashboard.csv';
   const MAX_SNAPSHOTS = 12_000;
@@ -359,22 +360,26 @@
   }
 
   async function officialJson(url) {
-    // ChinaMoney rejects requests issued by the extension sandbox. Its own
-    // pages use jQuery Ajax, so invoke that exact same, same-origin Ajax path.
-    // Keeping only a relative URL is important: it preserves the page's
-    // Referer, cookies and origin checks (the old absolute/sandbox fallback
-    // was the source of the HTTP 403 seen during history backfill).
-    const pageJq = typeof unsafeWindow !== 'undefined' ? unsafeWindow.jQuery || unsafeWindow.$ : null;
-    if (pageJq?.ajax) {
-      const target = new URL(url, unsafeWindow.location.href);
-      const requestUrl = target.origin === unsafeWindow.location.origin ? `${target.pathname}${target.search}` : target.href;
-      return new Promise((resolve, reject) => {
-        pageJq.ajax({ url: requestUrl, type: 'POST', dataType: 'json', cache: false, xhrFields: { withCredentials: true } })
-          .done((data) => resolve(data))
-          .fail((xhr) => reject(new Error(`官网页面请求失败：HTTP ${xhr.status || '未知'}`)));
-      });
+    // Use the page realm's fetch, not Tampermonkey's sandbox fetch. This is
+    // the same request shape captured from ChinaMoney's own pages: same
+    // origin, same Referer, cookies included and XMLHttpRequest header.
+    const page = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
+    const target = new URL(url, page.location.href);
+    if (target.origin !== page.location.origin) throw new Error('只允许请求当前中国货币网页面的同源接口。');
+    const requestUrl = `${target.pathname}${target.search}`;
+    if (typeof page.fetch === 'function') {
+      let response;
+      try {
+        response = await page.fetch(requestUrl, {
+          method: 'POST', credentials: 'include',
+          headers: { accept: 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest' },
+        });
+      } catch (error) { throw new Error(`官网页面请求连接失败：${error.message}`); }
+      if (!response.ok) throw new Error(`官网页面请求失败：HTTP ${response.status}`);
+      try { return await response.json(); }
+      catch { throw new Error('官网页面未返回 JSON 数据。'); }
     }
-    throw new Error('官网页面尚未加载完毕。请等待 3 秒后重试；为避免 403，插件不会改用跨上下文请求。');
+    throw new Error('官网页面尚未加载完毕。请等待 3 秒后重试。');
   }
 
   function isoDate(value) {
@@ -431,85 +436,52 @@
     return snapshotsToSave.reduce((total, item) => total + item.rows.length, 0);
   }
 
-  function monthRanges(startText) {
-    const result = []; const end = new Date(); let cursor = new Date(`${startText}T00:00:00`);
-    cursor.setDate(1);
+  const OPTION_SURFACES = [
+    { value: '0', label: 'ATM' }, { value: '7', label: '25D RR' },
+    { value: 'a', label: '10D BF' }, { value: '8', label: '25D BF' },
+  ];
+  const OPTION_TIMES = ['10:00', '11:00', '14:00', '15:00', '16:00'];
+
+  function optionBackfillJobs(startDate, endDate) {
+    const jobs = [];
+    const cursor = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
     while (cursor <= end) {
-      const first = new Date(cursor); const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
-      result.push([first.toLocaleDateString('en-CA'), (last > end ? end : last).toLocaleDateString('en-CA')]);
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
-    return result;
-  }
-
-  function officialHistoryStart() {
-    // ChinaMoney's option-history calendar currently exposes a rolling
-    // three-month window (it does not expose 2023 data).  Using that window
-    // prevents a false “2023 至今” promise and rejected old-date requests.
-    const value = new Date();
-    value.setMonth(value.getMonth() - 3);
-    return value.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
-  }
-
-  async function officialPaged(base, parameters, pageName = 'pageNum', sizeName = 'pageSize') {
-    const firstUrl = `${base}?${new URLSearchParams({ ...parameters, [pageName]: '1', [sizeName]: '500' })}`;
-    const first = await officialJson(firstUrl); const records = [...(first.records || [])];
-    const meta = first.data || {}; const pages = Number(meta.totalPageNum || meta.pageTotal || meta.count || 1);
-    for (let pageNumber = 2; pageNumber <= pages; pageNumber += 1) {
-      const response = await officialJson(`${base}?${new URLSearchParams({ ...parameters, [pageName]: String(pageNumber), [sizeName]: '500' })}`);
-      records.push(...(response.records || []));
-    }
-    return { records, meta };
-  }
-
-  async function backfillFromOfficial(startDate, progress) {
-    const root = 'https://www.chinamoney.com.cn';
-    const optionApi = `${root}/ags/ms/cm-u-bk-fx/FoivCurvHisData`;
-    const swapApi = `${root}/ags/ms/cm-u-bk-fx/FxSwapHisory`;
-    const impliedApi = `${root}/ags/ms/cm-u-bk-fx/IuirCurvHis`;
-    const fixingApi = `${root}/ags/ms/cm-u-bk-ccpr/CcprHisNew`;
-    // Ask the official page for its select-option IDs.  The values (rather
-    // than display labels) occasionally change and must not be guessed.
-    const [optionConfig, impliedConfig, swapConfig] = await Promise.all([
-      officialJson(`${optionApi}?lang=EN&pageSize=1&pageNum=1`),
-      officialJson(`${impliedApi}?page=1&pageSize=1`),
-      officialJson(`${swapApi}?lang=en&page=1&pagesize=1`),
-    ]);
-    const optionData = optionConfig.data || {}; const impliedData = impliedConfig.data || {}; const swapData = swapConfig.data || {};
-    const optionTimes = (optionData.tradeTimeList || []).map((item) => item.value).filter(Boolean);
-    const optionTypes = new Map((optionData.volatilityTypeList || []).map((item) => [item.enLabel, item.value]));
-    const wantedSurfaces = ['ATM', '25D RR', '10D BF', '25D BF'];
-    const firstValue = (name) => (impliedData[name] || [])[0]?.value;
-    const rmbRate = firstValue('rmdRateList'); const spotRate = firstValue('spotRateList'); const bp = firstValue('bpList');
-    const pair = (impliedData.ccyPairList || [])[0]?.value || 'USD.CNY';
-    const curveType = swapData.curveType || (swapData.cplist || [])[0] || 'USD.CNY'; const swapTime = (swapData.timeList || [''])[0];
-    const ranges = monthRanges(startDate); let completed = 0;
-    for (const [start, end] of ranges) {
-      const points = [];
-      const fixing = await officialPaged(fixingApi, { startDate: start, endDate: end, currency: '美元/人民币' });
-      fixing.records.forEach((r) => points.push(point(isoDate(r.dateString || r.showDate), '09:15', 'fixing', '', '', 'fixing', r['美元/人民币'] || r['USD/CNY'] || r.price, 'rate')));
-      const swaps = await officialPaged(swapApi, { lang: 'en', startDate: start, endDate: end, curveType, time: swapTime }, 'page', 'pagesize');
-      swaps.records.forEach((r) => {
-        const d = isoDate(r.curveTime || r.curveTimeEN); const t = r.time || swapTime;
-        points.push(point(d, t, 'swaps', '', r.tenor, 'swap_points', r.points, 'pips'));
-        points.push(point(d, t, 'swaps', '', r.tenor, 'forward_all_in', r.swapAllPrc, 'rate'));
-      });
-      const implied = await officialPaged(impliedApi, { rmbRateSrc: rmbRate, spotrateSrc: spotRate, bpSrc: bp, startDate: start, endDate: end, ccyPair: pair }, 'page');
-      implied.records.forEach((r) => points.push(point(isoDate(r.showDateCn || r.tradeDate), '16:50', 'implied_rates', '', r.tl, 'implied_usd_rate', r.dollarRateDes || r.dollarRate, 'pct')));
-      for (const time of optionTimes) for (const surface of wantedSurfaces) {
-        const type = optionTypes.get(surface); if (!type) continue;
-        const options = await officialPaged(optionApi, { lang: 'EN', tradeTime: time, ccyPair: 'USD.CNY', volatilityType: type, startDate: start, endDate: end });
-        options.records.forEach((r) => {
-          const d = isoDate(r.tradeDate); const t = r.tradeTime || time;
-          points.push(point(d, t, 'options', surface, r.tenor, 'implied_vol_mid', r.midVolatilityStr, 'pct'));
-          points.push(point(d, t, 'options', surface, r.tenor, 'implied_vol_bid', r.bidVolatilityStr, 'pct'));
-          points.push(point(d, t, 'options', surface, r.tenor, 'implied_vol_ask', r.askVolatilityStr, 'pct'));
-        });
+      // The endpoint returns no curve on weekends. Skipping them materially
+      // reduces the backfill without omitting any published ChinaMoney curves.
+      if (cursor.getUTCDay() !== 0 && cursor.getUTCDay() !== 6) {
+        const date = cursor.toISOString().slice(0, 10);
+        OPTION_TIMES.forEach((time) => OPTION_SURFACES.forEach((surface) => jobs.push({ date, time, ...surface })));
       }
-      await putHistoryPoints(points); completed += 1;
-      progress(`历史回填：${completed}/${ranges.length} 个月，已写入 ${points.length} 条`);
-      await pause(120);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
+    return jobs;
+  }
+
+  async function backfillOptionCurves(startDate, progress) {
+    const root = 'https://www.chinamoney.com.cn';
+    const endDate = today();
+    const jobs = optionBackfillJobs(startDate, endDate);
+    const savedState = await GM_getValue(OPTION_BACKFILL_STORE, {});
+    let index = savedState.startDate === startDate && savedState.endDate === endDate ? Number(savedState.index || 0) : 0;
+    let savedPoints = Number(savedState.savedPoints || 0);
+    for (; index < jobs.length; index += 1) {
+      const job = jobs[index];
+      const parameters = new URLSearchParams({ ccyPair: 'USD.CNY', volatilitySurface: job.value, ccyTime: job.time, ccyDate: job.date });
+      const result = await officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv?${parameters}`);
+      if (result.head?.rep_code && String(result.head.rep_code) !== '200') throw new Error(`期权曲线接口返回 ${result.head.rep_code}（${job.date} ${job.time} ${job.label}）`);
+      const points = (result.records || []).flatMap((record) => [
+        point(job.date, job.time, 'options', job.label, record.tenor, 'implied_vol_mid', record.midVolatilityStr, 'pct'),
+        point(job.date, job.time, 'options', job.label, record.tenor, 'implied_vol_bid', record.bidVolatilityStr, 'pct'),
+        point(job.date, job.time, 'options', job.label, record.tenor, 'implied_vol_ask', record.askVolatilityStr, 'pct'),
+      ]).filter(Boolean);
+      await putHistoryPoints(points); savedPoints += points.length;
+      if ((index + 1) % 5 === 0 || index + 1 === jobs.length) await GM_setValue(OPTION_BACKFILL_STORE, { startDate, endDate, index: index + 1, savedPoints });
+      if ((index + 1) % 10 === 0 || index + 1 === jobs.length) progress(`期权回填：${index + 1}/${jobs.length} 请求；已保存 ${savedPoints} 条，${job.date} ${job.time} ${job.label}`);
+      await pause(90);
+    }
+    await GM_setValue(OPTION_BACKFILL_STORE, { startDate, endDate, index: 0, savedPoints, completedAt: new Date().toISOString() });
+    return savedPoints;
   }
 
   function officialDownload() {
@@ -524,10 +496,10 @@
     host.innerHTML = `
       <button class="cmfx-toggle">FX</button>
       <div class="cmfx-card" hidden>
-        <strong>中国货币网外汇助手 <small>v0.4.4</small></strong>
-        <span class="cmfx-note">按当前页面时点保存；自动翻页采集；回填范围以官网当前可选窗口为准</span>
+        <strong>中国货币网外汇助手 <small>v0.5.0</small></strong>
+        <span class="cmfx-note">四类最新均走官网接口；期权历史按日期、时点、曲面逐笔回填</span>
         <button data-action="all">一键抓取四类官网最新</button>
-        <button data-action="backfill">一键回填官网可用历史</button>
+        <button data-action="backfill">期权回填 2023 至今（可续跑）</button>
         <button data-action="save">自动采集全部页</button>
         <button data-action="current">导出当前 Excel</button>
         <button data-action="official">官网下载 Excel</button>
@@ -546,14 +518,14 @@
         if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已自动采集：${saved.source_date}，${saved.rows.length} 行`; }
         if (action === 'all') { status.textContent = '正在从四类官网接口抓取…'; const count = await saveMany(await collectFourOfficialSources()); await renderHistory(preview); status.textContent = `四类官网数据已保存：${count} 行`; }
         if (action === 'backfill') {
-          const startDate = officialHistoryStart();
-          if (!confirm(`中国货币网当前期权历史页仅开放约 3 个月窗口；本次将从 ${startDate} 自动回填，覆盖 ATM、25D RR、10D BF、25D BF 的全部官网时点。数据会长期保存在本浏览器。是否开始？`)) return;
-          await backfillFromOfficial(startDate, (message) => { status.textContent = message; });
-          const count = await renderHistory(preview); status.textContent = `历史回填完成，已生成 ${count} 个最新序列分位`; }
+          const startDate = '2023-01-01';
+          if (!confirm('将通过 FoivltltyCurv 按每个交易日、5 个时点、ATM/25D RR/10D BF/25D BF 逐笔回填。首次约 2 万次官网请求，需保持此页面打开；中断后再次点击会从断点继续。是否开始？')) return;
+          const saved = await backfillOptionCurves(startDate, (message) => { status.textContent = message; });
+          const count = await renderHistory(preview); status.textContent = `期权历史回填完成，累计 ${saved} 条；已生成 ${count} 个最新序列分位`; }
         if (action === 'current') { await exportCurrent(); status.textContent = '已下载当前全部页表格'; }
         if (action === 'official') { officialDownload(); status.textContent = '已调用官网导出'; }
         if (action === 'history') { const count = await renderHistory(preview); status.textContent = `本地历史：${count} 条数值记录，已下载汇总 Excel（含分位数）`; await exportHistory(); }
-        if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); await clearHistoryPoints(); preview.innerHTML = ''; status.textContent = '本地历史已清空'; }
+        if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); await GM_setValue(OPTION_BACKFILL_STORE, {}); await clearHistoryPoints(); preview.innerHTML = ''; status.textContent = '本地历史与回填断点已清空'; }
       } catch (error) { status.textContent = `未完成：${error.message}`; }
     });
   }
