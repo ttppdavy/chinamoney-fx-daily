@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.3.0
+// @version      0.4.0
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -23,6 +23,7 @@
 
   const STORE = 'cmfx.snapshots.v1';
   const CLOUD_STORE = 'cmfx.github-history.v1';
+  const DB_NAME = 'cmfx-local-history-v1';
   const DASHBOARD_URL = 'https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/data/daily_market_dashboard.csv';
   const MAX_SNAPSHOTS = 12_000;
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -107,6 +108,78 @@
   }
 
   const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+  function openHistoryDb() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore('points', { keyPath: 'key' });
+        store.createIndex('series', 'series'); store.createIndex('date', 'date');
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function putHistoryPoints(points) {
+    if (!points.length) return;
+    const database = await openHistoryDb();
+    for (let start = 0; start < points.length; start += 2_000) {
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction('points', 'readwrite');
+        points.slice(start, start + 2_000).forEach((point) => transaction.objectStore('points').put(point));
+        transaction.oncomplete = resolve; transaction.onerror = () => reject(transaction.error);
+      });
+    }
+    database.close();
+  }
+
+  async function allHistoryPoints() {
+    const database = await openHistoryDb();
+    const values = await new Promise((resolve, reject) => {
+      const request = database.transaction('points').objectStore('points').getAll();
+      request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+    });
+    database.close(); return values;
+  }
+
+  async function clearHistoryPoints() {
+    const database = await openHistoryDb();
+    await new Promise((resolve, reject) => {
+      const request = database.transaction('points', 'readwrite').objectStore('points').clear();
+      request.onsuccess = resolve; request.onerror = () => reject(request.error);
+    });
+    database.close();
+  }
+
+  function point(date, time, dataset, surface, tenor, metric, value, unit = '') {
+    const numeric = Number(String(value ?? '').replaceAll(',', '').replace('%', ''));
+    if (!Number.isFinite(numeric) || !date) return null;
+    const series = [dataset, surface, tenor, metric, unit].join('|');
+    return { key: [date, time, series].join('|'), date, time, dataset, surface, tenor, metric, unit, value: numeric, series };
+  }
+
+  function snapshotPoints(snapshot) {
+    const index = (name) => findColumn(snapshot.headers, name);
+    const valueAt = (row, name) => row.values[index(name)];
+    const output = [];
+    snapshot.rows.forEach((row) => {
+      if (snapshot.dataset === 'fixing') output.push(point(row.source_date, row.source_time, 'fixing', '', '', 'fixing', valueAt(row, '中间价'), 'rate'));
+      if (snapshot.dataset === 'swaps') {
+        const tenor = valueAt(row, '期限');
+        output.push(point(row.source_date, row.source_time, 'swaps', '', tenor, 'swap_points', valueAt(row, '掉期点'), 'pips'));
+        output.push(point(row.source_date, row.source_time, 'swaps', '', tenor, 'forward_all_in', valueAt(row, '全价'), 'rate'));
+      }
+      if (snapshot.dataset === 'implied_rates') output.push(point(row.source_date, row.source_time, 'implied_rates', '', valueAt(row, '期限'), 'implied_usd_rate', valueAt(row, '隐含利率'), 'pct'));
+      if (snapshot.dataset === 'options') {
+        const tenor = valueAt(row, '期限');
+        output.push(point(row.source_date, row.source_time, 'options', snapshot.surface, tenor, 'implied_vol_mid', valueAt(row, '波动率(%)'), 'pct'));
+        output.push(point(row.source_date, row.source_time, 'options', snapshot.surface, tenor, 'implied_vol_bid', valueAt(row, '波动率报买'), 'pct'));
+        output.push(point(row.source_date, row.source_time, 'options', snapshot.surface, tenor, 'implied_vol_ask', valueAt(row, '波动率报卖'), 'pct'));
+      }
+    });
+    return output.filter(Boolean);
+  }
   const pageSignature = () => clean(findDataTable()?.innerText).slice(0, 1_500);
   function pagerButton(kind) {
     return document.querySelector(`.san-pagination .page-${kind} a, .san-pagination .page-${kind}, .pagination .${kind} a, .pagination .${kind}`);
@@ -150,6 +223,7 @@
     const key = `${current.dataset}|${current.source_date}|${current.source_time}|${current.surface}|${current.source_url}`;
     const next = [current, ...saved.filter((item) => `${item.dataset}|${item.source_date}|${item.source_time}|${item.surface}|${item.source_url}` !== key)].slice(0, MAX_SNAPSHOTS);
     await GM_setValue(STORE, next);
+    await putHistoryPoints(snapshotPoints(current));
     return current;
   }
 
@@ -202,6 +276,23 @@
     return [...fromGithub, ...local].sort((a, b) => `${b.date}${b.series}`.localeCompare(`${a.date}${a.series}`));
   }
 
+  async function localHistorySummary() {
+    const points = await allHistoryPoints();
+    const groups = new Map();
+    points.forEach((item) => groups.set(item.series, [...(groups.get(item.series) || []), item]));
+    const output = [];
+    groups.forEach((series) => {
+      series.sort((a, b) => `${a.date}|${a.time}`.localeCompare(`${b.date}|${b.time}`));
+      const latest = series.at(-1); const latestDate = new Date(`${latest.date}T00:00:00`);
+      const lookback = (days) => series.filter((item) => (latestDate - new Date(`${item.date}T00:00:00`)) / 86_400_000 <= days);
+      const oneYear = lookback(365); const threeYear = lookback(1095);
+      const percentile = (items) => items.length ? (100 * items.filter((item) => item.value <= latest.value).length / items.length).toFixed(1) : '';
+      const previous = series.length > 1 ? series.at(-2).value : null;
+      output.push({ date: latest.date, time: latest.time, dataset: latest.dataset, surface: latest.surface, series: latest.series, value: latest.value, change: previous === null ? '' : (latest.value - previous).toFixed(6), percentile: percentile(threeYear), percentile_1y: percentile(oneYear), samples: threeYear.length, source_url: '中国货币网官方历史接口' });
+    });
+    return output.sort((a, b) => `${b.date}${b.series}`.localeCompare(`${a.date}${a.series}`));
+  }
+
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
   function download(name, content, mime = 'application/vnd.ms-excel;charset=utf-8') {
     const url = URL.createObjectURL(new Blob(['\ufeff', content], { type: mime }));
@@ -220,7 +311,8 @@
   }
 
   async function exportHistory() {
-    const rows = await summaryRows();
+    const localRows = await localHistorySummary();
+    const rows = localRows.length ? localRows : await summaryRows();
     if (!rows.length) throw new Error('还没有本地历史快照。先在官网查询相应日期，再点击“采集当前页”。');
     const headers = ['日期', '时点', '模块', '曲面', '序列', '数值', '日变动', '历史分位(%)', '样本数', '来源链接'];
     const body = rows.map((r) => [r.date, r.time, r.dataset, r.surface, r.series, r.value, r.change, r.percentile, r.samples, r.source_url]);
@@ -229,7 +321,8 @@
   }
 
   async function renderHistory(container) {
-    const rows = await summaryRows();
+    const localRows = await localHistorySummary();
+    const rows = localRows.length ? localRows : await summaryRows();
     if (!rows.length) { container.innerHTML = ''; return 0; }
     container.innerHTML = `<table><thead><tr><th>日期</th><th>序列</th><th>数值</th><th>分位</th></tr></thead><tbody>${rows.slice(0, 12).map((r) => `<tr><td>${escapeHtml(r.date)}</td><td title="${escapeHtml(r.series)}">${escapeHtml(r.series).slice(-18)}</td><td>${escapeHtml(r.value)}</td><td>${escapeHtml(r.percentile)}%</td></tr>`).join('')}</tbody></table>`;
     return rows.length;
@@ -327,7 +420,78 @@
     snapshotsToSave.forEach((item) => map.set(`${item.dataset}|${item.source_date}|${item.source_time}|${item.surface}|${item.source_url}`, item));
     const next = [...map.values()].sort((a, b) => b.captured_at.localeCompare(a.captured_at)).slice(0, MAX_SNAPSHOTS);
     await GM_setValue(STORE, next);
+    await putHistoryPoints(snapshotsToSave.flatMap(snapshotPoints));
     return snapshotsToSave.reduce((total, item) => total + item.rows.length, 0);
+  }
+
+  function monthRanges(startText) {
+    const result = []; const end = new Date(); let cursor = new Date(`${startText}T00:00:00`);
+    cursor.setDate(1);
+    while (cursor <= end) {
+      const first = new Date(cursor); const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      result.push([first.toLocaleDateString('en-CA'), (last > end ? end : last).toLocaleDateString('en-CA')]);
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+    return result;
+  }
+
+  async function officialPaged(base, parameters, pageName = 'pageNum', sizeName = 'pageSize') {
+    const firstUrl = `${base}?${new URLSearchParams({ ...parameters, [pageName]: '1', [sizeName]: '500' })}`;
+    const first = await officialJson(firstUrl); const records = [...(first.records || [])];
+    const meta = first.data || {}; const pages = Number(meta.totalPageNum || meta.pageTotal || meta.count || 1);
+    for (let pageNumber = 2; pageNumber <= pages; pageNumber += 1) {
+      const response = await officialJson(`${base}?${new URLSearchParams({ ...parameters, [pageName]: String(pageNumber), [sizeName]: '500' })}`);
+      records.push(...(response.records || []));
+    }
+    return { records, meta };
+  }
+
+  async function backfillFromOfficial(startDate, progress) {
+    const root = 'https://www.chinamoney.com.cn';
+    const optionApi = `${root}/ags/ms/cm-u-bk-fx/FoivCurvHisData`;
+    const swapApi = `${root}/ags/ms/cm-u-bk-fx/FxSwapHisory`;
+    const impliedApi = `${root}/ags/ms/cm-u-bk-fx/IuirCurvHis`;
+    const fixingApi = `${root}/ags/ms/cm-u-bk-ccpr/CcprHisNew`;
+    const [optionConfig, impliedConfig, swapConfig] = await Promise.all([
+      officialJson(`${optionApi}?lang=EN&pageSize=1&pageNum=1`),
+      officialJson(`${impliedApi}?page=1&pageSize=1`),
+      officialJson(`${swapApi}?lang=en&page=1&pagesize=1`),
+    ]);
+    const optionData = optionConfig.data || {}; const impliedData = impliedConfig.data || {}; const swapData = swapConfig.data || {};
+    const optionTimes = (optionData.tradeTimeList || []).map((item) => item.value).filter(Boolean);
+    const optionTypes = new Map((optionData.volatilityTypeList || []).map((item) => [item.enLabel, item.value]));
+    const wantedSurfaces = ['ATM', '25D RR', '10D BF', '25D BF'];
+    const firstValue = (name) => (impliedData[name] || [])[0]?.value;
+    const rmbRate = firstValue('rmdRateList'); const spotRate = firstValue('spotRateList'); const bp = firstValue('bpList');
+    const pair = (impliedData.ccyPairList || [])[0]?.value || 'USD.CNY';
+    const curveType = swapData.curveType || (swapData.cplist || [])[0] || 'USD.CNY'; const swapTime = (swapData.timeList || [''])[0];
+    const ranges = monthRanges(startDate); let completed = 0;
+    for (const [start, end] of ranges) {
+      const points = [];
+      const fixing = await officialPaged(fixingApi, { startDate: start, endDate: end, currency: '美元/人民币' });
+      fixing.records.forEach((r) => points.push(point(isoDate(r.dateString || r.showDate), '09:15', 'fixing', '', '', 'fixing', r['美元/人民币'] || r['USD/CNY'] || r.price, 'rate')));
+      const swaps = await officialPaged(swapApi, { lang: 'en', startDate: start, endDate: end, curveType, time: swapTime }, 'page', 'pagesize');
+      swaps.records.forEach((r) => {
+        const d = isoDate(r.curveTime || r.curveTimeEN); const t = r.time || swapTime;
+        points.push(point(d, t, 'swaps', '', r.tenor, 'swap_points', r.points, 'pips'));
+        points.push(point(d, t, 'swaps', '', r.tenor, 'forward_all_in', r.swapAllPrc, 'rate'));
+      });
+      const implied = await officialPaged(impliedApi, { rmbRateSrc: rmbRate, spotrateSrc: spotRate, bpSrc: bp, startDate: start, endDate: end, ccyPair: pair }, 'page');
+      implied.records.forEach((r) => points.push(point(isoDate(r.showDateCn || r.tradeDate), '16:50', 'implied_rates', '', r.tl, 'implied_usd_rate', r.dollarRateDes || r.dollarRate, 'pct')));
+      for (const time of optionTimes) for (const surface of wantedSurfaces) {
+        const type = optionTypes.get(surface); if (!type) continue;
+        const options = await officialPaged(optionApi, { lang: 'EN', tradeTime: time, ccyPair: 'USD.CNY', volatilityType: type, startDate: start, endDate: end });
+        options.records.forEach((r) => {
+          const d = isoDate(r.tradeDate); const t = r.tradeTime || time;
+          points.push(point(d, t, 'options', surface, r.tenor, 'implied_vol_mid', r.midVolatilityStr, 'pct'));
+          points.push(point(d, t, 'options', surface, r.tenor, 'implied_vol_bid', r.bidVolatilityStr, 'pct'));
+          points.push(point(d, t, 'options', surface, r.tenor, 'implied_vol_ask', r.askVolatilityStr, 'pct'));
+        });
+      }
+      await putHistoryPoints(points); completed += 1;
+      progress(`历史回填：${completed}/${ranges.length} 个月，已写入 ${points.length} 条`);
+      await pause(120);
+    }
   }
 
   function officialDownload() {
@@ -345,6 +509,7 @@
         <strong>中国货币网外汇助手</strong>
         <span class="cmfx-note">按当前页面时点保存；自动翻页采集</span>
         <button data-action="all">一键抓取四类官网最新</button>
+        <button data-action="backfill">一键回填历史（2023至今）</button>
         <button data-action="save">自动采集全部页</button>
         <button data-action="current">导出当前 Excel</button>
         <button data-action="official">官网下载 Excel</button>
@@ -362,10 +527,14 @@
       try {
         if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已自动采集：${saved.source_date}，${saved.rows.length} 行`; }
         if (action === 'all') { status.textContent = '正在从四类官网接口抓取…'; const count = await saveMany(await collectFourOfficialSources()); await renderHistory(preview); status.textContent = `四类官网数据已保存：${count} 行`; }
+        if (action === 'backfill') {
+          if (!confirm('将从 2023-01-01 开始调用中国货币网历史接口。首次约需数分钟，请保持页面打开。是否开始？')) return;
+          await backfillFromOfficial('2023-01-01', (message) => { status.textContent = message; });
+          const count = await renderHistory(preview); status.textContent = `历史回填完成，已生成 ${count} 个最新序列分位`; }
         if (action === 'current') { await exportCurrent(); status.textContent = '已下载当前全部页表格'; }
         if (action === 'official') { officialDownload(); status.textContent = '已调用官网导出'; }
         if (action === 'history') { const count = await renderHistory(preview); status.textContent = `本地历史：${count} 条数值记录，已下载汇总 Excel（含分位数）`; await exportHistory(); }
-        if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); preview.innerHTML = ''; status.textContent = '本地历史已清空'; }
+        if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); await clearHistoryPoints(); preview.innerHTML = ''; status.textContent = '本地历史已清空'; }
       } catch (error) { status.textContent = `未完成：${error.message}`; }
     });
   }
