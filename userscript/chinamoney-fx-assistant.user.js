@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.1.0
+// @version      0.2.0
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
+// @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
+// @updateURL    https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
 // @match        https://www.chinamoney.com.cn/*
 // @match        http://www.chinamoney.com.cn/*
 // @grant        GM_getValue
