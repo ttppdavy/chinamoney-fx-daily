@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.5.0
+// @version      0.5.1
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -396,11 +396,13 @@
 
   async function collectFourOfficialSources() {
     const root = 'https://www.chinamoney.com.cn';
+    const requestedOptionTime = sourceType() === 'options' ? optionTime() || '16:00' : '16:00';
+    const requestedOptionDate = sourceType() === 'options' ? dateOnPage() : today();
     const [fixing, swapConfig, implied, optionConfig] = await Promise.all([
       officialJson(`${root}/r/cms/www/chinamoney/data/fx/ccpr.json`),
       officialJson(`${root}/ags/ms/cm-u-bk-fx/FxSwapCp`),
-      officialJson(`${root}/ags/ms/cm-u-bk-fx/IuirCurv`),
-      officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv`),
+      officialJson(`${root}/ags/ms/cm-u-bk-fx/IuirCurv?rmbRateSrc=24&bpSrc=26&spotrateSrc=29&ccyPair=USD.CNY`),
+      officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv?ccyPair=USD.CNY&volatilitySurface=0&ccyTime=${encodeURIComponent(requestedOptionTime)}&ccyDate=${encodeURIComponent(requestedOptionDate)}`),
     ]);
     const collected = [];
     const fixingDate = isoDate(fixing.data?.lastDate);
@@ -416,7 +418,7 @@
 
     const optionData = optionConfig.data || {};
     const optionDate = isoDate(optionData.ccyDate);
-    const selectedTime = optionData.ccyTime || '';
+    const selectedTime = optionData.ccyTime || requestedOptionTime;
     const surfaces = (optionData.volatilitySurfaceList || []).filter((item) => /ATM|25D\s*RR|10D\s*BF|25D\s*BF/i.test(`${item.cnLabel || ''} ${item.enLabel || ''}`));
     for (const item of (surfaces.length ? surfaces : optionData.volatilitySurfaceList || [])) {
       const result = await officialJson(`${root}/ags/ms/cm-u-bk-fx/FoivltltyCurv?ccyPair=${encodeURIComponent(optionData.ccyPair || 'USD.CNY')}&volatilitySurface=${encodeURIComponent(item.value)}&ccyTime=${encodeURIComponent(selectedTime)}&ccyDate=${encodeURIComponent(optionData.ccyDate || '')}`);
@@ -496,7 +498,7 @@
     host.innerHTML = `
       <button class="cmfx-toggle">FX</button>
       <div class="cmfx-card" hidden>
-        <strong>中国货币网外汇助手 <small>v0.5.0</small></strong>
+        <strong>中国货币网外汇助手 <small>v0.5.1</small></strong>
         <span class="cmfx-note">四类最新均走官网接口；期权历史按日期、时点、曲面逐笔回填</span>
         <button data-action="all">一键抓取四类官网最新</button>
         <button data-action="backfill">期权回填 2023 至今（可续跑）</button>
