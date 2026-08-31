@@ -86,6 +86,9 @@ async def run(start: date, end: date) -> None:
         # Load configs once.  Values, not display labels, are the stable official query parameters.
         option_config = await post_json(context, OPTION_URL, {"lang": "EN", "pageSize": "1", "pageNum": "1"})
         option_types = {item.get("enLabel"): str(item.get("value")) for item in (option_config.get("data") or {}).get("volatilityTypeList", [])}
+        option_times = [str(item.get("value")) for item in (option_config.get("data") or {}).get("tradeTimeList", []) if item.get("value")]
+        if not option_times:
+            raise RuntimeError("期权历史接口未返回可回填时点")
         implied_config = await post_json(context, IMPLIED_URL, {"page": "1", "pageSize": "1"})
         implied_data = implied_config.get("data") or {}
         def first_id(name: str) -> str:
@@ -112,23 +115,25 @@ async def run(start: date, end: date) -> None:
                 if record.get("ccyPair") == "USD/CNY" and rate is not None:
                     all_rows.append(row(text_date(value(record, "dealDate")), "14:00", "reference_rate", "USD/CNY", "", "", "reference_rate_14", rate, "rate", REFERENCE_RATE_API, record, retrieved_at, sha))
 
-            # Option curves: only 10:00, all four requested volatility surfaces and all tenors/quotes.
+            # Option curves: every intraday time published by ChinaMoney, all
+            # requested surfaces/tenors and bid-mid-ask quotes.
             option_raw: dict[str, Any] = {}
-            for surface in ("ATM", "25D RR", "10D BF", "25D BF"):
-                kind = option_types.get(surface)
-                if not kind:
-                    raise RuntimeError(f"期权历史接口未提供 {surface}")
-                records = await paged(context, OPTION_URL, {"lang": "EN", "tradeTime": "10:00", "ccyPair": "USD.CNY", "volatilityType": kind, "startDate": start_text, "endDate": end_text}, "pageNum")
-                option_raw[surface] = records
-                for record in records:
-                    source_date = text_date(value(record, "tradeDate"))
-                    tenor = value(record, "tenor")
-                    for metric, field in (("implied_vol_mid", "midVolatilityStr"), ("implied_vol_bid", "bidVolatilityStr"), ("implied_vol_ask", "askVolatilityStr")):
-                        quote = parse_number(value(record, field))
-                        if tenor and quote is not None:
-                            # SHA is assigned after the month's complete raw bundle is written.
-                            all_rows.append(row(source_date, "10:00", "options", "USD.CNY", surface, tenor, metric, quote, "pct", OPTION_URL, record, retrieved_at, "PENDING"))
-            option_sha = write_gzip_json(folder / "options_10am.json.gz", option_raw)
+            for trade_time in option_times:
+                for surface in ("ATM", "25D RR", "10D BF", "25D BF"):
+                    kind = option_types.get(surface)
+                    if not kind:
+                        raise RuntimeError(f"期权历史接口未提供 {surface}")
+                    records = await paged(context, OPTION_URL, {"lang": "EN", "tradeTime": trade_time, "ccyPair": "USD.CNY", "volatilityType": kind, "startDate": start_text, "endDate": end_text}, "pageNum")
+                    option_raw[f"{trade_time}_{surface}"] = records
+                    for record in records:
+                        source_date = text_date(value(record, "tradeDate"))
+                        tenor = value(record, "tenor")
+                        for metric, field in (("implied_vol_mid", "midVolatilityStr"), ("implied_vol_bid", "bidVolatilityStr"), ("implied_vol_ask", "askVolatilityStr")):
+                            quote = parse_number(value(record, field))
+                            if tenor and quote is not None:
+                                # SHA is assigned after the month's complete raw bundle is written.
+                                all_rows.append(row(source_date, value(record, "tradeTime") or trade_time, "options", "USD.CNY", surface, tenor, metric, quote, "pct", OPTION_URL, record, retrieved_at, "PENDING"))
+            option_sha = write_gzip_json(folder / "options_all_times.json.gz", option_raw)
             for item in all_rows:
                 if item["raw_sha256"] == "PENDING":
                     item["raw_sha256"] = option_sha
