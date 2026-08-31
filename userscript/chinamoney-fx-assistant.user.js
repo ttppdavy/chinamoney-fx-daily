@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         中国货币网外汇助手
 // @namespace    https://github.com/ttppdavy/chinamoney-fx-daily
-// @version      0.4.3
+// @version      0.4.4
 // @description  一键保存中国货币网外汇曲线、查看历史分位数，并导出本地汇总 Excel。
 // @author       Yutao
 // @downloadURL  https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/userscript/chinamoney-fx-assistant.user.js
@@ -442,6 +442,15 @@
     return result;
   }
 
+  function officialHistoryStart() {
+    // ChinaMoney's option-history calendar currently exposes a rolling
+    // three-month window (it does not expose 2023 data).  Using that window
+    // prevents a false “2023 至今” promise and rejected old-date requests.
+    const value = new Date();
+    value.setMonth(value.getMonth() - 3);
+    return value.toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+  }
+
   async function officialPaged(base, parameters, pageName = 'pageNum', sizeName = 'pageSize') {
     const firstUrl = `${base}?${new URLSearchParams({ ...parameters, [pageName]: '1', [sizeName]: '500' })}`;
     const first = await officialJson(firstUrl); const records = [...(first.records || [])];
@@ -515,10 +524,10 @@
     host.innerHTML = `
       <button class="cmfx-toggle">FX</button>
       <div class="cmfx-card" hidden>
-        <strong>中国货币网外汇助手 <small>v0.4.3</small></strong>
-        <span class="cmfx-note">按当前页面时点保存；自动翻页采集；回填走官网同源请求</span>
+        <strong>中国货币网外汇助手 <small>v0.4.4</small></strong>
+        <span class="cmfx-note">按当前页面时点保存；自动翻页采集；回填范围以官网当前可选窗口为准</span>
         <button data-action="all">一键抓取四类官网最新</button>
-        <button data-action="backfill">一键回填历史（2023至今）</button>
+        <button data-action="backfill">一键回填官网可用历史</button>
         <button data-action="save">自动采集全部页</button>
         <button data-action="current">导出当前 Excel</button>
         <button data-action="official">官网下载 Excel</button>
@@ -537,8 +546,9 @@
         if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已自动采集：${saved.source_date}，${saved.rows.length} 行`; }
         if (action === 'all') { status.textContent = '正在从四类官网接口抓取…'; const count = await saveMany(await collectFourOfficialSources()); await renderHistory(preview); status.textContent = `四类官网数据已保存：${count} 行`; }
         if (action === 'backfill') {
-          if (!confirm('将从 2023-01-01 开始调用中国货币网历史接口。首次约需数分钟，请保持页面打开。是否开始？')) return;
-          await backfillFromOfficial('2023-01-01', (message) => { status.textContent = message; });
+          const startDate = officialHistoryStart();
+          if (!confirm(`中国货币网当前期权历史页仅开放约 3 个月窗口；本次将从 ${startDate} 自动回填，覆盖 ATM、25D RR、10D BF、25D BF 的全部官网时点。数据会长期保存在本浏览器。是否开始？`)) return;
+          await backfillFromOfficial(startDate, (message) => { status.textContent = message; });
           const count = await renderHistory(preview); status.textContent = `历史回填完成，已生成 ${count} 个最新序列分位`; }
         if (action === 'current') { await exportCurrent(); status.textContent = '已下载当前全部页表格'; }
         if (action === 'official') { officialDownload(); status.textContent = '已调用官网导出'; }
