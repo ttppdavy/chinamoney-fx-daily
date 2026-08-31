@@ -138,23 +138,8 @@ async def load_reference_rate(source: Source) -> tuple[dict[str, Any], list[dict
 async def load_all_option_surfaces(page: Page) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     source = SOURCES[3]
     base, responses = await load_source(page, source)
-    # The public page defaults can change during the day.  Select 10:00 explicitly
-    # before taking any curve so the daily history is one comparable time slice.
-    time_select = page.locator("#foiv-curv-rmb-time")
-    if await time_select.count():
-        choices = await time_select.locator("option").evaluate_all("opts => opts.map(o => ({value:o.value,label:o.textContent.trim()}))")
-        # Chinese page labels are normally “10时”, while the English historical
-        # page exposes “10:00”.  The selected option value is the official key.
-        ten_am = next((x for x in choices if "10" in x["label"]), None)
-        if not ten_am:
-            raise RuntimeError("期权页面未提供 10:00 时点")
-        await time_select.select_option(ten_am["value"])
-        await page.evaluate("doSearch()")
-        await page.wait_for_timeout(1_500)
-        rows, table_text = await table_rows(page, source.required_headers)
-        headers, records = normalise_table(rows)
-        date_text, _ = extract_date_and_time(await page.locator("body").inner_text())
-        base = {"source": source.name, "source_url": source.url, "source_date": date_text, "source_time": "10:00", "headers": headers, "records": records, "table_text": table_text}
+    # Keep the time currently selected by ChinaMoney.  Its default is the latest
+    # available intraday snapshot, and the page itself reports the auditable time.
     snapshots = [base]
     select = page.locator("#foiv-curv-type")
     if not await select.count():
