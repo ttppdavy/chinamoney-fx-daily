@@ -10,6 +10,8 @@
 // @grant        GM_setValue
 // @grant        GM_download
 // @grant        GM_addStyle
+// @grant        GM_xmlhttpRequest
+// @connect      raw.githubusercontent.com
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -17,6 +19,8 @@
   'use strict';
 
   const STORE = 'cmfx.snapshots.v1';
+  const CLOUD_STORE = 'cmfx.github-history.v1';
+  const DASHBOARD_URL = 'https://raw.githubusercontent.com/ttppdavy/chinamoney-fx-daily/main/data/daily_market_dashboard.csv';
   const MAX_SNAPSHOTS = 12_000;
   const $ = (selector, root = document) => root.querySelector(selector);
   const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -66,7 +70,8 @@
 
   function optionTime() {
     const pageValue = selectedOptionLabel('#foiv-curv-rmb-time');
-    return pageValue.includes('10') ? '10:00' : pageValue;
+    const matched = pageValue.match(/(\d{1,2})\s*(?::\s*(\d{2}))?/);
+    return matched ? `${matched[1].padStart(2, '0')}:${(matched[2] || '00').padStart(2, '0')}` : pageValue;
   }
 
   function findColumn(headers, text) {
@@ -81,16 +86,13 @@
     let surface = '';
     if (dataset === 'options') {
       sourceTime = optionTime();
-      // Guardrail: we store the 10:00 option curve only; other official page
-      // views can still be downloaded via the original Excel button.
-      if (sourceTime !== '10:00') throw new Error(`期权当前选择的是“${sourceTime || '未识别'}”。请在官网先选 10:00，再采集。`);
       surface = selectedOptionLabel('#foiv-curv-type');
     }
     const dateIndex = findColumn(headers, '日期');
     const timeIndex = findColumn(headers, '时');
     const rowsWithMeta = rows.map((row) => ({
       source_date: dateIndex >= 0 && /^20\d{2}/.test(row[dateIndex]) ? row[dateIndex].replaceAll('/', '-') : sourceDate,
-      source_time: dataset === 'options' ? '10:00' : (timeIndex >= 0 ? row[timeIndex] : sourceTime),
+      source_time: dataset === 'options' ? sourceTime : (timeIndex >= 0 ? row[timeIndex] : sourceTime),
       dataset, surface, values: row,
     }));
     return { captured_at: new Date().toISOString(), source_url: location.href, dataset, source_date: sourceDate, source_time: sourceTime, surface, headers, rows: rowsWithMeta };
@@ -101,8 +103,46 @@
     return Array.isArray(saved) ? saved : [];
   }
 
+  const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+  const pageSignature = () => clean(findDataTable()?.innerText).slice(0, 1_500);
+  function pagerButton(kind) {
+    return document.querySelector(`.san-pagination .page-${kind} a, .san-pagination .page-${kind}, .pagination .${kind} a, .pagination .${kind}`);
+  }
+  async function clickAndWait(button, previous) {
+    if (!button || button.classList.contains('disabled') || button.getAttribute('aria-disabled') === 'true') return false;
+    button.click();
+    for (let attempt = 0; attempt < 35; attempt += 1) {
+      await pause(180);
+      if (pageSignature() !== previous) return true;
+    }
+    return false;
+  }
+
+  async function collectAllPages() {
+    // ChinaMoney tables use the same pagination component across the curve pages.
+    // We drive that component once, rather than requiring the user to save every page.
+    const first = pagerButton('first');
+    const beforeFirst = pageSignature();
+    if (first) await clickAndWait(first, beforeFirst);
+    const firstSnapshot = normaliseSnapshot();
+    const allRows = [...firstSnapshot.rows];
+    const seenPages = new Set([JSON.stringify(firstSnapshot.rows.map((row) => row.values))]);
+    let prior = pageSignature();
+    for (let page = 0; page < 200; page += 1) {
+      const next = pagerButton('next');
+      if (!await clickAndWait(next, prior)) break;
+      const snapshot = normaliseSnapshot();
+      const pageKey = JSON.stringify(snapshot.rows.map((row) => row.values));
+      if (seenPages.has(pageKey)) break;
+      seenPages.add(pageKey);
+      allRows.push(...snapshot.rows);
+      prior = pageSignature();
+    }
+    return { ...firstSnapshot, rows: allRows };
+  }
+
   async function saveCurrent() {
-    const current = normaliseSnapshot();
+    const current = await collectAllPages();
     const saved = await snapshots();
     const key = `${current.dataset}|${current.source_date}|${current.source_time}|${current.surface}|${current.source_url}`;
     const next = [current, ...saved.filter((item) => `${item.dataset}|${item.source_date}|${item.source_time}|${item.surface}|${item.source_url}` !== key)].slice(0, MAX_SNAPSHOTS);
@@ -142,23 +182,36 @@
       .filter((item) => Number.isFinite(item.value));
     const groups = new Map();
     flat.forEach((item) => groups.set(item.key, [...(groups.get(item.key) || []), item]));
-    return flat.map((item) => {
+    const local = flat.map((item) => {
       const history = groups.get(item.key).filter((x) => x.row.source_date <= item.row.source_date).sort((a, b) => a.row.source_date.localeCompare(b.row.source_date));
       const values = history.map((x) => x.value);
       const percentile = values.length ? (100 * values.filter((x) => x <= item.value).length / values.length).toFixed(1) : '';
       const previous = history.length > 1 ? history.at(-2).value : null;
       return { date: item.row.source_date, time: item.row.source_time, dataset: item.snapshot.dataset, surface: item.snapshot.surface, series: item.key, value: item.value, change: previous === null ? '' : (item.value - previous).toFixed(6), percentile, samples: values.length, source_url: item.snapshot.source_url };
-    }).sort((a, b) => `${b.date}${b.series}`.localeCompare(`${a.date}${a.series}`));
+    });
+    const cloud = await GM_getValue(CLOUD_STORE, []);
+    const fromGithub = (Array.isArray(cloud) ? cloud : []).map((item) => ({
+      date: item.source_date, time: item.source_time, dataset: item.dataset, surface: item.surface,
+      series: [item.dataset, item.instrument, item.surface, item.tenor, item.metric].filter(Boolean).join('|'),
+      value: Number(item.value), change: item.day_change, percentile: item.percentile_3y || item.percentile_1y,
+      samples: item.observations_3y || item.observations_1y, source_url: item.source_url,
+    })).filter((item) => Number.isFinite(item.value));
+    return [...fromGithub, ...local].sort((a, b) => `${b.date}${b.series}`.localeCompare(`${a.date}${a.series}`));
   }
 
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
   function download(name, content, mime = 'application/vnd.ms-excel;charset=utf-8') {
     const url = URL.createObjectURL(new Blob(['\ufeff', content], { type: mime }));
-    GM_download({ url, name, saveAs: true, onload: () => URL.revokeObjectURL(url), onerror: () => URL.revokeObjectURL(url) });
+    // Native downloads work with Blob URLs in Chrome/Edge; GM_download rejects
+    // them in some Tampermonkey versions, which caused the first export failure.
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = name; anchor.style.display = 'none';
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
   }
 
-  function exportCurrent() {
-    const snapshot = normaliseSnapshot();
+  async function exportCurrent() {
+    const snapshot = await collectAllPages();
     const table = `<table><thead><tr>${snapshot.headers.map((x) => `<th>${escapeHtml(x)}</th>`).join('')}</tr></thead><tbody>${snapshot.rows.map((r) => `<tr>${r.values.map((x) => `<td>${escapeHtml(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     download(`中国货币网_${snapshot.dataset}_${snapshot.source_date}.xls`, `<html><meta charset="utf-8"><body>${table}</body></html>`);
   }
@@ -179,6 +232,35 @@
     return rows.length;
   }
 
+  function parseCsv(text) {
+    const rows = []; let row = []; let cell = ''; let quoted = false;
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index]; const next = text[index + 1];
+      if (char === '"' && quoted && next === '"') { cell += '"'; index += 1; }
+      else if (char === '"') quoted = !quoted;
+      else if (char === ',' && !quoted) { row.push(cell); cell = ''; }
+      else if ((char === '\n' || char === '\r') && !quoted) { if (char === '\r' && next === '\n') index += 1; row.push(cell); if (row.some(Boolean)) rows.push(row); row = []; cell = ''; }
+      else cell += char;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    const [headers, ...data] = rows;
+    return data.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] || ''])));
+  }
+
+  function githubDashboard() {
+    return new Promise((resolve, reject) => GM_xmlhttpRequest({
+      method: 'GET', url: `${DASHBOARD_URL}?t=${Date.now()}`,
+      onload: (response) => response.status === 200 ? resolve(parseCsv(response.responseText)) : reject(new Error(`GitHub 历史文件尚未生成（HTTP ${response.status}）`)),
+      onerror: () => reject(new Error('无法连接 GitHub 历史数据文件。')),
+    }));
+  }
+
+  async function syncGithubHistory() {
+    const rows = await githubDashboard();
+    await GM_setValue(CLOUD_STORE, rows);
+    return rows.length;
+  }
+
   function officialDownload() {
     const button = [...document.querySelectorAll('a,button,input[type="button"]')].find((node) => /导出\s*Excel|下载|Save to Excel/i.test(clean(node.value || node.textContent)));
     if (!button) throw new Error('此页面未找到官网“导出 Excel”按钮。请先在官网选择日期/曲面后手工导出。');
@@ -192,10 +274,11 @@
       <button class="cmfx-toggle">FX</button>
       <div class="cmfx-card" hidden>
         <strong>中国货币网外汇助手</strong>
-        <span class="cmfx-note">本地保存；期权只认 10:00</span>
-        <button data-action="save">采集当前页</button>
+        <span class="cmfx-note">按当前页面时点保存；自动翻页采集</span>
+        <button data-action="save">自动采集全部页</button>
         <button data-action="current">导出当前 Excel</button>
         <button data-action="official">官网下载 Excel</button>
+        <button data-action="sync">同步 GitHub 长期历史</button>
         <button data-action="history">展示 / 导出历史</button>
         <button data-action="clear" class="cmfx-danger">清空本地历史</button>
         <p class="cmfx-status">当前模块：${sourceType()}</p>
@@ -208,9 +291,10 @@
       const action = event.target.dataset.action;
       if (!action) return;
       try {
-        if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已保存：${saved.source_date}，${saved.rows.length} 行`; }
-        if (action === 'current') { exportCurrent(); status.textContent = '已下载当前表格'; }
+        if (action === 'save') { const saved = await saveCurrent(); status.textContent = `已自动采集：${saved.source_date}，${saved.rows.length} 行`; }
+        if (action === 'current') { await exportCurrent(); status.textContent = '已下载当前全部页表格'; }
         if (action === 'official') { officialDownload(); status.textContent = '已调用官网导出'; }
+        if (action === 'sync') { const count = await syncGithubHistory(); status.textContent = `已同步 GitHub 长期历史：${count} 行`; }
         if (action === 'history') { const count = await renderHistory(preview); status.textContent = `本地历史：${count} 条数值记录，已下载汇总 Excel（含分位数）`; await exportHistory(); }
         if (action === 'clear' && confirm('确认清空本浏览器保存的所有中国货币网历史快照？')) { await GM_setValue(STORE, []); preview.innerHTML = ''; status.textContent = '本地历史已清空'; }
       } catch (error) { status.textContent = `未完成：${error.message}`; }
