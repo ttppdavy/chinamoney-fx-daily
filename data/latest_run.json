@@ -1,54 +1,54 @@
 {
-  "retrieved_at_utc": "2026-09-01T14:11:14+00:00",
-  "source_date": "2026-09-01",
+  "retrieved_at_utc": "2026-09-02T13:43:22+00:00",
+  "source_date": "2026-09-02",
   "snapshot_count": 8,
   "observation_count": 209,
   "sources": [
     {
       "name": "fixing",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "09:15",
       "rows": 25
     },
     {
       "name": "reference_rate",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "14:00",
-      "rows": 110
+      "rows": 115
     },
     {
       "name": "swaps",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "16:30",
       "rows": 19
     },
     {
       "name": "options",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "10:00",
       "rows": 13
     },
     {
       "name": "options",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "10:00",
       "rows": 13
     },
     {
       "name": "options",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "10:00",
       "rows": 13
     },
     {
       "name": "options",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "10:00",
       "rows": 13
     },
     {
       "name": "implied_rates",
-      "date": "2026-09-01",
+      "date": "2026-09-02",
       "time": "",
       "rows": 13
     }
