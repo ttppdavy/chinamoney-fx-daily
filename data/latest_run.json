@@ -1,5 +1,5 @@
 {
-  "retrieved_at_utc": "2026-09-30T15:57:33+00:00",
+  "retrieved_at_utc": "2026-10-01T16:29:38+00:00",
   "source_date": "2026-09-30",
   "snapshot_count": 8,
   "observation_count": 209,
@@ -12,9 +12,9 @@
     },
     {
       "name": "reference_rate",
-      "date": "2026-09-30",
+      "date": "2026-10-02",
       "time": "14:00",
-      "rows": 110
+      "rows": 95
     },
     {
       "name": "swaps",
@@ -25,25 +25,25 @@
     {
       "name": "options",
       "date": "2026-09-30",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
       "name": "options",
       "date": "2026-09-30",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
       "name": "options",
       "date": "2026-09-30",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
       "name": "options",
       "date": "2026-09-30",
-      "time": "10:00",
+      "time": "16:00",
       "rows": 13
     },
     {
