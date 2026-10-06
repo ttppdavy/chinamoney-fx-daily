@@ -1,5 +1,5 @@
 {
-  "retrieved_at_utc": "2026-10-05T18:32:18+00:00",
+  "retrieved_at_utc": "2026-10-06T15:59:53+00:00",
   "source_date": "2026-09-30",
   "snapshot_count": 8,
   "observation_count": 209,
@@ -12,9 +12,9 @@
     },
     {
       "name": "reference_rate",
-      "date": "2026-10-06",
+      "date": "2026-10-07",
       "time": "14:00",
-      "rows": 85
+      "rows": 80
     },
     {
       "name": "swaps",
