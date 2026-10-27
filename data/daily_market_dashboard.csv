@@ -7789,4 +7789,213 @@ source_date,source_time,dataset,instrument,surface,tenor,metric,value,unit,day_c
 2026-10-26,16:30,swaps,USD.CNY,,SN,swap_points,-4.75,pips,0.17,69.4,69.4,36,36,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
 2026-10-26,16:30,swaps,USD.CNY,,TN,forward_all_in,6.6686,rate,-0.0028,2.8,2.8,36,36,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
 2026-10-26,16:30,swaps,USD.CNY,,TN,swap_points,-4.75,pips,0.08,61.1,61.1,36,36,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
-2026-10-27,14:00,reference_rate,USD/CNY,,,reference_rate_14,6.669,rate,-0.0038,2.4,2.4,42,42,https://www.chinamoney.com.cn/ags/ms/cm-u-bk-fx/RefRateHis
+2026-10-27,09:15,fixing,USD/CNY,,,fixing,6.7171,rate,0.0009,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkccpr/
+2026-10-27,,implied_rates,USD,,18M,implied_usd_rate,4.4807,pct,-0.002,32.4,32.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,1D,implied_usd_rate,4.0025,pct,0.0288,45.9,45.9,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,1M,implied_usd_rate,4.0592,pct,-0.0065,32.4,32.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,1W,implied_usd_rate,3.9743,pct,-0.0305,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,1Y,implied_usd_rate,4.4047,pct,0.0088,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,2M,implied_usd_rate,4.1468,pct,-0.012,52.6,52.6,38,38,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,2W,implied_usd_rate,3.9908,pct,-0.015,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,2Y,implied_usd_rate,4.5217,pct,-0.0001,32.4,32.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,3M,implied_usd_rate,4.2101,pct,-0.0059,54.1,54.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,3W,implied_usd_rate,4.0322,pct,-0.0118,32.4,32.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,3Y,implied_usd_rate,4.5527,pct,0.0079,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,6M,implied_usd_rate,4.2678,pct,0.0033,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,,implied_rates,USD,,9M,implied_usd_rate,4.3458,pct,0.01,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvuir/
+2026-10-27,10:00,options,USD.CNY,10D BF,18M,implied_vol_ask,0.75,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,18M,implied_vol_bid,0.35,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,18M,implied_vol_mid,0.55,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1D,implied_vol_ask,0.2,pct,0.0,89.3,89.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1D,implied_vol_bid,0.2,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1D,implied_vol_mid,0.2,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1M,implied_vol_ask,0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1M,implied_vol_bid,0.0,pct,0.0,25.0,25.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1M,implied_vol_mid,0.15,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1W,implied_vol_ask,0.3,pct,0.15,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1W,implied_vol_bid,0.0,pct,-0.15,42.9,42.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1W,implied_vol_mid,0.15,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1Y,implied_vol_ask,0.5,pct,-0.15,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1Y,implied_vol_bid,0.5,pct,0.15,78.6,78.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,1Y,implied_vol_mid,0.5,pct,0.0,35.7,35.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2M,implied_vol_ask,0.35,pct,0.0,71.4,71.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2M,implied_vol_bid,0.05,pct,0.0,60.7,60.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2M,implied_vol_mid,0.2,pct,0.0,28.6,28.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2W,implied_vol_ask,0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2W,implied_vol_bid,0.0,pct,0.0,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2W,implied_vol_mid,0.15,pct,0.0,96.4,96.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2Y,implied_vol_ask,0.8,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2Y,implied_vol_bid,0.4,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,2Y,implied_vol_mid,0.6,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3M,implied_vol_ask,0.5,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3M,implied_vol_bid,0.2,pct,0.0,57.1,57.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3M,implied_vol_mid,0.35,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3W,implied_vol_ask,0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3W,implied_vol_bid,0.0,pct,0.0,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3W,implied_vol_mid,0.15,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3Y,implied_vol_ask,0.8,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3Y,implied_vol_bid,0.4,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,3Y,implied_vol_mid,0.6,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,6M,implied_vol_ask,0.4435,pct,-0.1565,39.3,39.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,6M,implied_vol_bid,0.4435,pct,0.1435,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,6M,implied_vol_mid,0.4435,pct,-0.0065,67.9,67.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,9M,implied_vol_ask,0.6,pct,0.0,67.9,67.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,9M,implied_vol_bid,0.3,pct,0.0,67.9,67.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,10D BF,9M,implied_vol_mid,0.45,pct,0.0,35.7,35.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,18M,implied_vol_ask,0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,18M,implied_vol_bid,0.1,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,18M,implied_vol_mid,0.2,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1D,implied_vol_ask,0.1,pct,0.0,89.3,89.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1D,implied_vol_bid,0.1,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1D,implied_vol_mid,0.1,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1M,implied_vol_ask,0.0925,pct,-0.1075,75.0,75.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1M,implied_vol_bid,0.09,pct,0.09,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1M,implied_vol_mid,0.0913,pct,0.0013,85.7,85.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1W,implied_vol_ask,0.2,pct,0.1,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1W,implied_vol_bid,0.0,pct,-0.1,39.3,39.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1W,implied_vol_mid,0.1,pct,0.0,96.4,96.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1Y,implied_vol_ask,0.19,pct,-0.11,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1Y,implied_vol_bid,0.19,pct,0.09,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,1Y,implied_vol_mid,0.19,pct,-0.01,85.7,85.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2M,implied_vol_ask,0.0975,pct,-0.1025,57.1,57.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2M,implied_vol_bid,0.0925,pct,0.0925,92.9,92.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2M,implied_vol_mid,0.094,pct,-0.001,78.6,78.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2W,implied_vol_ask,0.2,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2W,implied_vol_bid,0.0,pct,0.0,42.9,42.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2W,implied_vol_mid,0.1,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2Y,implied_vol_ask,0.35,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2Y,implied_vol_bid,0.15,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,2Y,implied_vol_mid,0.25,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3M,implied_vol_ask,0.1,pct,-0.1,57.1,57.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3M,implied_vol_bid,0.0975,pct,0.0975,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3M,implied_vol_mid,0.0988,pct,-0.0012,85.7,85.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3W,implied_vol_ask,0.09,pct,-0.11,46.4,46.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3W,implied_vol_bid,0.08,pct,0.08,92.9,92.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3W,implied_vol_mid,0.085,pct,-0.015,71.4,71.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3Y,implied_vol_ask,0.35,pct,0.0,92.9,92.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3Y,implied_vol_bid,0.15,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,3Y,implied_vol_mid,0.25,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,6M,implied_vol_ask,0.1533,pct,-0.0967,46.4,46.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,6M,implied_vol_bid,0.1533,pct,0.1033,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,6M,implied_vol_mid,0.1533,pct,0.0033,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,9M,implied_vol_ask,0.18,pct,-0.12,57.1,57.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,9M,implied_vol_bid,0.175,pct,0.075,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D BF,9M,implied_vol_mid,0.1775,pct,-0.0225,82.1,82.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,18M,implied_vol_ask,0.3,pct,-0.05,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,18M,implied_vol_bid,-0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,18M,implied_vol_mid,0.0,pct,-0.025,53.6,53.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1D,implied_vol_ask,0.2,pct,0.0,85.7,85.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1D,implied_vol_bid,0.2,pct,0.0,96.4,96.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1D,implied_vol_mid,0.2,pct,0.0,96.4,96.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1M,implied_vol_ask,0.05,pct,-0.025,64.3,64.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1M,implied_vol_bid,0.0,pct,-0.05,64.3,64.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1M,implied_vol_mid,0.045,pct,-0.005,60.7,60.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1W,implied_vol_ask,0.1,pct,-0.1,46.4,46.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1W,implied_vol_bid,0.0,pct,-0.2,82.1,82.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1W,implied_vol_mid,0.025,pct,-0.175,60.7,60.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1Y,implied_vol_ask,0.0,pct,-0.15,35.7,35.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1Y,implied_vol_bid,0.0,pct,0.1,78.6,78.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,1Y,implied_vol_mid,0.0,pct,-0.025,46.4,46.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2M,implied_vol_ask,0.025,pct,-0.225,53.6,53.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2M,implied_vol_bid,-0.025,pct,0.075,60.7,60.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2M,implied_vol_mid,0.0088,pct,-0.0262,57.1,57.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2W,implied_vol_ask,0.075,pct,-0.325,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2W,implied_vol_bid,0.0,pct,0.1,92.9,92.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2W,implied_vol_mid,0.0375,pct,-0.0375,60.7,60.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2Y,implied_vol_ask,0.3,pct,-0.05,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2Y,implied_vol_bid,-0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,2Y,implied_vol_mid,0.0,pct,-0.025,53.6,53.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3M,implied_vol_ask,0.025,pct,-0.01,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3M,implied_vol_bid,-0.025,pct,-0.025,60.7,60.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3M,implied_vol_mid,0.005,pct,-0.0125,53.6,53.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3W,implied_vol_ask,0.075,pct,-0.325,42.9,42.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3W,implied_vol_bid,0.0,pct,0.1,92.9,92.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3W,implied_vol_mid,0.05,pct,-0.1,64.3,64.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3Y,implied_vol_ask,0.3,pct,-0.05,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3Y,implied_vol_bid,-0.3,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,3Y,implied_vol_mid,0.0,pct,-0.025,53.6,53.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,6M,implied_vol_ask,0.0,pct,-0.18,39.3,39.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,6M,implied_vol_bid,0.0,pct,0.1,75.0,75.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,6M,implied_vol_mid,0.0,pct,-0.035,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,9M,implied_vol_ask,0.025,pct,-0.145,50.0,50.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,9M,implied_vol_bid,-0.05,pct,0.05,35.7,35.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,25D RR,9M,implied_vol_mid,-0.0125,pct,-0.0475,35.7,35.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,18M,implied_vol_ask,3.5,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,18M,implied_vol_bid,2.9,pct,-0.1,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,18M,implied_vol_mid,3.2,pct,-0.05,67.9,67.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1D,implied_vol_ask,1.5,pct,0.0,89.3,89.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1D,implied_vol_bid,1.5,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1D,implied_vol_mid,1.5,pct,0.0,89.3,89.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1M,implied_vol_ask,1.3,pct,-0.025,7.1,7.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1M,implied_vol_bid,1.2,pct,-0.075,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1M,implied_vol_mid,1.3,pct,0.0086,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1W,implied_vol_ask,1.2,pct,-0.025,21.4,21.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1W,implied_vol_bid,1.15,pct,-0.075,17.9,17.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1W,implied_vol_mid,1.15,pct,-0.075,14.3,14.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1Y,implied_vol_ask,2.892,pct,-0.048,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1Y,implied_vol_bid,2.892,pct,-0.023,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,1Y,implied_vol_mid,2.892,pct,-0.028,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2M,implied_vol_ask,1.55,pct,-0.025,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2M,implied_vol_bid,1.475,pct,-0.025,7.1,7.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2M,implied_vol_mid,1.5045,pct,-0.0155,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2W,implied_vol_ask,1.3,pct,-0.05,21.4,21.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2W,implied_vol_bid,1.1,pct,0.0,21.4,21.4,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2W,implied_vol_mid,1.2,pct,-0.025,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2Y,implied_vol_ask,3.6,pct,0.25,57.1,57.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2Y,implied_vol_bid,3.0,pct,-0.1,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,2Y,implied_vol_mid,3.3,pct,0.075,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3M,implied_vol_ask,1.7,pct,0.015,14.3,14.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3M,implied_vol_bid,1.625,pct,0.0,17.9,17.9,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3M,implied_vol_mid,1.6539,pct,-0.0005,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3W,implied_vol_ask,1.45,pct,0.1,32.1,32.1,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3W,implied_vol_bid,1.05,pct,-0.1,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3W,implied_vol_mid,1.25,pct,0.0,14.3,14.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3Y,implied_vol_ask,4.0,pct,0.0,100.0,100.0,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3Y,implied_vol_bid,3.2,pct,-0.1,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,3Y,implied_vol_mid,3.6,pct,-0.05,78.6,78.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,6M,implied_vol_ask,2.229,pct,-0.046,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,6M,implied_vol_bid,2.229,pct,-0.021,14.3,14.3,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,6M,implied_vol_mid,2.229,pct,-0.0335,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,9M,implied_vol_ask,2.635,pct,-0.065,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,9M,implied_vol_bid,2.575,pct,-0.05,10.7,10.7,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,10:00,options,USD.CNY,ATM,9M,implied_vol_mid,2.6034,pct,-0.0591,3.6,3.6,28,28,https://www.chinamoney.com.cn/chinese/bkcurvfqq/
+2026-10-27,14:00,reference_rate,USD/CNY,,,reference_rate_14,6.668,rate,-0.0048,2.4,2.4,42,42,https://www.chinamoney.com.cn/ags/ms/cm-u-bk-fx/RefRateHis
+2026-10-27,14:00,reference_rate,USD/CNY,,,reference_rate_14,6.669,rate,0.001,4.7,4.7,43,43,https://www.chinamoney.com.cn/ags/ms/cm-u-bk-fx/RefRateHis
+2026-10-27,16:30,swaps,USD.CNY,,18M,forward_all_in,6.3636,rate,0.0006,10.8,10.8,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,18M,swap_points,-3045.0,pips,7.0,67.6,67.6,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,1M,forward_all_in,6.6525,rate,0.0005,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,1M,swap_points,-156.0,pips,5.23,40.5,40.5,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,1W,forward_all_in,6.6647,rate,-0.0001,2.7,2.7,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,1W,swap_points,-33.48,pips,0.27,67.6,67.6,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,1Y,forward_all_in,6.4684,rate,-0.0006,2.7,2.7,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,1Y,swap_points,-1997.0,pips,-5.0,64.9,64.9,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,2M,forward_all_in,6.6375,rate,0.0,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,2M,swap_points,-305.41,pips,1.34,54.1,54.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,2W,forward_all_in,6.6613,rate,0.0004,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,2W,swap_points,-67.18,pips,5.12,67.6,67.6,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,2Y,forward_all_in,6.2586,rate,0.0004,13.5,13.5,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,2Y,swap_points,-4095.0,pips,5.0,64.9,64.9,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,3M,forward_all_in,6.6211,rate,0.0,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,3M,swap_points,-470.0,pips,1.0,45.9,45.9,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,3W,forward_all_in,6.6579,rate,0.0,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,3W,swap_points,-101.81,pips,0.44,78.4,78.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,3Y,forward_all_in,6.0626,rate,-0.0011,32.4,32.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,3Y,swap_points,-6055.0,pips,-10.0,64.9,64.9,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,4M,forward_all_in,6.606,rate,0.0004,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,4M,swap_points,-620.5,pips,4.95,70.3,70.3,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,4Y,forward_all_in,5.8781,rate,-0.0001,48.6,48.6,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,4Y,swap_points,-7900.0,pips,0.0,70.3,70.3,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,5M,forward_all_in,6.5895,rate,0.0003,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,5M,swap_points,-785.25,pips,4.75,64.9,64.9,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,5Y,forward_all_in,5.6981,rate,-0.0001,48.6,48.6,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,5Y,swap_points,-9700.0,pips,0.0,67.6,67.6,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,6M,forward_all_in,6.5726,rate,-0.0003,2.7,2.7,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,6M,swap_points,-954.5,pips,-2.0,51.4,51.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,9M,forward_all_in,6.5214,rate,-0.0005,2.7,2.7,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,9M,swap_points,-1466.5,pips,-3.5,59.5,59.5,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,ON,forward_all_in,6.6691,rate,0.0,5.4,5.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,ON,swap_points,-5.2,pips,-0.35,35.1,35.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,SN,forward_all_in,6.6676,rate,-0.0001,2.7,2.7,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,SN,swap_points,-4.83,pips,-0.08,54.1,54.1,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,TN,forward_all_in,6.6685,rate,-0.0001,2.7,2.7,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
+2026-10-27,16:30,swaps,USD.CNY,,TN,swap_points,-4.85,pips,-0.1,51.4,51.4,37,37,https://www.chinamoney.com.cn/chinese/bkcurvfsw/
